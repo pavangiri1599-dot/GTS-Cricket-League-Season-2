@@ -1,0 +1,73 @@
+@import "tailwindcss" source(none);
+@source "../index.html";
+
+@theme {
+  --font-sans: "Rajdhani", system-ui, sans-serif;
+  --font-display: "Bebas Neue", Impact, sans-serif;
+  --color-bg: #070a14;
+  --color-panel: #0e1426;
+  --color-ink: #f2f5ff;
+  --color-muted: #a5afd0;
+  --color-gold: #ffc83d;
+  --color-gold-end: #ff9a1f;
+  --color-line: #ffffff26;
+}
+
+@layer base {
+  :root { color-scheme: dark; }
+  [hidden] { display: none !important; }
+  body { background-image: radial-gradient(1100px 560px at 50% -10%, #1b2a6b66, transparent); }
+  h2, h3 { @apply font-display font-normal tracking-wide; }
+  h2 { @apply text-3xl leading-tight; }
+  button, select, input, textarea { @apply min-w-0; }
+  button, select { @apply touch-manipulation; }
+  button:not(:disabled), select { @apply cursor-pointer; }
+  :focus-visible { @apply outline-2 outline-offset-4 outline-gold; }
+  input, select, textarea { @apply w-full rounded-xl border border-line bg-white/5 px-3 py-2 text-base font-semibold text-ink; }
+  input, select { @apply min-h-11; }
+  textarea { @apply min-h-48 resize-y leading-relaxed; }
+  option { @apply bg-panel; }
+  label { @apply flex min-w-0 flex-col gap-1.5 text-sm font-semibold text-muted; }
+  kbd { @apply ml-1 hidden font-sans text-xs opacity-60 sm:inline; }
+}
+
+@layer components {
+  .btn, nav button {
+    @apply inline-flex min-h-11 items-center justify-center gap-1 rounded-xl border border-line bg-white/5 px-3 py-2 text-base font-bold leading-snug text-ink transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn.on, nav button.on { @apply border-gold bg-gold text-bg hover:bg-gold/90; }
+  .btn.pri { @apply border-transparent bg-linear-to-r from-blue-600 to-violet-600 hover:brightness-110; }
+  .btn.go { @apply border-transparent bg-linear-to-r from-emerald-400 to-lime-300 text-emerald-950 hover:brightness-110; }
+  .btn.no { @apply border-rose-400/60 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25; }
+  .team-leading { box-shadow: 0 0 0 2px var(--c); }
+  .team-leading::after { content: "Leading bid"; @apply text-xs font-bold uppercase tracking-widest text-ink; }
+  .stage {
+    background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--c, #ffc83d) 16%, #0b1124), #0b1124 75%);
+    border-color: color-mix(in srgb, var(--c, #ffc83d) 45%, #ffffff1a);
+  }
+  .sl { @apply grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-xl bg-white/5 p-3; }
+  .sl.e { @apply flex min-h-12 items-center justify-center border border-dashed border-line bg-transparent text-sm text-muted; }
+  .sl .x { @apply col-start-2 row-span-3 row-start-1 min-h-11 min-w-11 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 text-sm font-bold text-rose-200 hover:bg-rose-500/25; }
+  .roster-price { @apply col-start-1 row-start-3 pl-3 text-base not-italic tabular-nums text-gold; }
+  @container (min-width: 24rem) {
+    .sl { @apply grid-cols-[minmax(0,1fr)_auto_auto]; }
+    .sl .x { @apply col-start-3 row-span-2; }
+    .roster-price { @apply col-start-2 row-span-2 row-start-1 whitespace-nowrap pl-0; }
+  }
+  .sl .x.arm { @apply bg-rose-500 text-white; }
+  .player-row { @apply grid min-w-0 grid-cols-2 items-start gap-3 rounded-2xl border border-line bg-panel p-4 sm:grid-cols-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,.8fr)_minmax(0,1.8fr)_minmax(0,.8fr)]; }
+  .stt { @apply inline-flex min-h-8 items-center justify-center rounded-full bg-white/10 px-3 py-1 text-sm font-bold; }
+  .stt.s { @apply bg-emerald-500/20 text-emerald-200; }
+  .stt.u { @apply bg-rose-500/20 text-rose-200; }
+  #ov { background: #030712b8; backdrop-filter: blur(8px); }
+  .present #stage { @apply row-span-3 row-start-1 self-stretch; }
+  .present nav, .present #bids, .present #ctl, .present .sl .x,
+  .ro #bids, .ro #ctl, .ro .sl .x, .ro nav [data-v="unsold"], .ro nav [data-v="players"], .ro nav [data-v="setup"],
+  body:not([data-v="auction"]) #bids, body:not([data-v="auction"]) #ctl { display: none !important; }
+}
+
+@keyframes bid-bump { 50% { opacity: .65; } }
+.bump { animation: bid-bump .25s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
