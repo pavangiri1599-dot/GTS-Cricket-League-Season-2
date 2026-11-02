@@ -188,7 +188,7 @@ test('both HTML entry points stay identical and use the compiled Tailwind asset'
 test('eleven-slot squads and team/owner headings appear across the interface', async () => {
   const { context, page } = await open();
   assert.equal(await page.evaluate(() => S.cfg.squad), 11);
-  const labels = ['Team A (Tejas & Rohit)', 'Team B (Avneesh & Vinay)', 'Team C (Manmohan / Nahas / Priya Singh)', 'Team D (Rakshit & Pallavi)', 'Team E (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
+  const labels = ['Team A (Tejas & Rohit)', 'Team B (Avneesh & Vinay)', 'Team C (Manmohan, Nahas & Priya Singh)', 'Team D (Rakshit & Pallavi)', 'Team E (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
   assert.deepEqual(await page.locator('#bids b').allTextContents(), labels);
   assert.deepEqual(await page.locator('#teams b').allTextContents(), labels);
   await page.locator('nav [data-v="squads"]').click();
@@ -197,6 +197,9 @@ test('eleven-slot squads and team/owner headings appear across the interface', a
   await page.locator('nav [data-v="setup"]').click();
   assert.equal(await page.locator('#sS').inputValue(), '11');
   assert.match(await page.locator('#sTe').inputValue(), /Dhurandhar, Sudip & Kunal/);
+  await page.evaluate(() => build({ ...S.cfg }, $('#sTe').value, $('#sPl').value));
+  assert.equal(await page.evaluate(() => S.teams[2].owner), 'Manmohan, Nahas & Priya Singh', 'commas in owner names must survive setup parsing');
+  assert.equal(await page.evaluate(() => S.teams[2].color), '#ffd54a');
   await context.close();
 });
 
@@ -232,6 +235,11 @@ test('existing saved and synced auctions gain new team labels and slots without 
   await page.evaluate(state => applyRemote(JSON.stringify({ ...state, v: 101 })), custom);
   assert.equal(await page.evaluate(() => S.cfg.squad), 12);
   assert.equal(await page.evaluate(() => S.teams[0].name), 'Custom Team');
+  await page.evaluate(() => {
+    S.teams[2].name = 'Team C'; S.teams[2].owner = 'Manmohan'; S.teamSetupVersion = 1;
+    migrateTeamSetup(S); render();
+  });
+  assert.equal(await page.evaluate(() => S.teams[2].owner), 'Manmohan, Nahas & Priya Singh', 'already migrated auctions must repair the truncated owner label');
   assert.deepEqual(errors, []);
   await context.close();
 });

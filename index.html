@@ -26,6 +26,16 @@
                     data-v="setup">Setup</button></nav>
             <div class="grid w-full grid-cols-3 gap-3 rounded-2xl border border-line bg-panel p-3 sm:grid-cols-5 sm:p-4" id="stats"></div>
         </header>
+        <p id="connection-status" hidden role="status" class="rounded-xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100"></p>
+        <section id="auth-panel" hidden class="mx-auto w-full max-w-md rounded-2xl border border-line bg-panel p-5">
+            <h2>Operator sign in</h2>
+            <p class="mt-2 text-sm text-muted">Enter the operator password to control this auction. Spectators can watch without signing in.</p>
+            <form id="login-form" class="mt-4 flex flex-col gap-3">
+                <label>Operator password<input id="operator-password" type="password" autocomplete="current-password" required></label>
+                <button class="btn pri" type="submit">Sign in</button>
+                <p id="login-message" role="status" class="text-sm text-muted"></p>
+            </form>
+        </section>
         <section class="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]" id="v-auction">
             <div class="stage relative flex min-h-[340px] min-w-0 items-center justify-center rounded-3xl border-2 px-4 py-8 text-center sm:min-h-[420px] sm:px-8" id="stage">
                 <div id="idle" class="w-full min-w-0"></div>
@@ -50,6 +60,8 @@
                 <button class="btn" id="bMute">Sound on<kbd>M</kbd></button>
                 <button class="btn" id="bPres" aria-pressed="false">Present<kbd>H</kbd></button>
                 <button class="btn" id="bDisp">Open display ↗</button>
+                <button class="btn" id="bShare" disabled>Copy viewing link</button>
+                <button class="btn" id="bLogout" hidden>Sign out</button>
             </div>
             <div class="grid grid-cols-2 gap-2 md:grid-cols-3 xl:col-start-1 xl:row-start-2 2xl:grid-cols-[repeat(var(--team-count,6),minmax(0,1fr))]" id="bids" aria-label="Team bids"></div>
             <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:grid-cols-1" id="teams"></div>
@@ -65,6 +77,8 @@
     <div id="ov" hidden class="fixed inset-0 z-50 overflow-y-auto p-4" role="dialog" aria-modal="true" aria-labelledby="result-title"></div><canvas id="cf" class="pointer-events-none fixed inset-0 z-40 h-full w-full" aria-hidden="true"></canvas>
     <script>
         const $ = s => document.querySelector(s), K = 'gts-auction-v3', DISP = location.hash === '#display';
+        const VIEW = DISP || location.pathname.replace(/\/$/, '') === '/watch' || new URLSearchParams(location.search).get('view') === '1';
+        const LOCAL = location.protocol === 'file:' || ['127.0.0.1', 'localhost', '::1'].includes(location.hostname);
         const LEAGUE_TITLE = 'GTS Cricket League Season 2';
         const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         const fmt = n => '₹' + Number(n).toLocaleString('en-IN');
@@ -74,7 +88,7 @@
         const TEAM_DEFAULTS = [
             { name: 'Team A', owner: 'Tejas & Rohit', legacy: ['Tejas & Rohit'] },
             { name: 'Team B', owner: 'Avneesh & Vinay', legacy: ['Avneesh & Vinay'] },
-            { name: 'Team C', owner: 'Manmohan / Nahas / Priya Singh', legacy: ['Manmohan', 'Manmohan / Nahas / Priya Singh'] },
+            { name: 'Team C', owner: 'Manmohan, Nahas & Priya Singh', legacy: ['Manmohan', 'Manmohan / Nahas / Priya Singh'] },
             { name: 'Team D', owner: 'Rakshit & Pallavi', legacy: ['Rakshit & Pallavi'] },
             { name: 'Team E', owner: 'Ashutosh & Alok', legacy: ['Ashutosh & Alok'] },
             { name: 'Dhurandhar', owner: 'Sudip & Kunal', legacy: ['Sudip', 'Sudip & Kunal'] },
@@ -85,6 +99,10 @@
         function migrateTeamSetup(state) {
             let changed = false;
             if (/^gts\s+premier\s+league$/i.test((state.cfg.title || '').trim())) { state.cfg.title = LEAGUE_TITLE; changed = true; }
+            const teamC = state.teams.find(t => t.id === 2);
+            if (teamC && ['Team C', ...TEAM_DEFAULTS[2].legacy].includes(teamC.name) && /^(manmohan|manmohan\s*\/\s*nahas\s*\/\s*priya singh)$/i.test((teamC.owner || '').trim())) {
+                teamC.owner = TEAM_DEFAULTS[2].owner; changed = true;
+            }
             if (state.teamSetupVersion >= 1) return changed;
             if (state.cfg.squad === 8) state.cfg.squad = 11;
             state.teams.forEach(t => {
@@ -95,28 +113,29 @@
             return true;
         }
         const P0 = ("Suraj Panchal,Icon,40000,1,40000;Vishal Tiwari,Icon,40000,2,40000;Mandar Ghugare,Icon,40000,3,40000;Nishant Patil,Icon,40000,4,40000;Sanil Gaikwad,Icon,40000,5,40000;Pavan Giri,Icon,40000,6,40000;Tejas Sawant,Owner,30000,1,30000;Rohit Singh,Owner,30000,1,30000;Nahas Khalid,Owner,30000,3,30000;Rakshit Deshmukh,Owner,30000,4,30000;Pallavi Kudtarkar,Female Owner,15000,4,15000;Nevedita Kale,Female;Kalyani Dhoke,Female;Aditi Dalvi,Female;Priya Chaudhary,Female;Simran Datkhile,Female;Rupesh Gawli,AR;Viral Bhatt,AR;Prashant Shinde,AR;Pravin Kore,AR;Larry D'Cruz,Bat;Rohan Bhanushali,Bat;Kunal Tawate,Bat;Sanjay Gupta,Bat;Sandeep Santhanam,Bat;Gunaseelan V,Bat;Nilesh Shinde,Bat;Pronnoy Choudhury,Bat;Deepak Hirawat,Bat;Pavan Mokashi,Bat;Tushar Gaikwad,Bat;Pushkar Pillewar,Bat;Suraj Nishad,Bat;Omkar Madhvi,Bat;Sonu Thakur,Bat;Yashraj Salian,Bowl;Rahul Patil,Bowl;Mandar Jawalkar,Bowl;Sunny Mishra,Bowl;Viraj Raorane,Bowl;Om Patel,Bowl;Sarvar Nivsekar,Bowl;Aman Bajaj,Bowl;Sunny Kumar,Bowl;Kunal Mittal,New;Prashant Kasbe,New;Anshuman Mukherjee,New;Nilesh Upsham,New").split(';').join('\n');
-        let S, seen = 0, reeling = false, mute = false, AC, ovT, shown = 0, DB = null, RO = false, DBOK = false, lastJ = '', wBusy = false, wPend = false, LV = null, first = true;
-        function build(cfg, tt, pt) { S = { cfg, teams: tt.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 8).map((l, i) => { const [a, b, c] = l.split(',').map(x => x.trim()); return { id: i, name: a, owner: b || '', color: /^#[0-9a-f]{6}$/i.test(c || '') ? c : PAL[i] } }), players: pt.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const [a, b, c, d, e] = l.split(',').map(x => x.trim()); const cat = norm(b), tm = parseInt(d) - 1, fx = tm >= 0 && tm < 8, bp = +c || CATS[cat][2]; return { id: i, name: a, cat, base: bp, team: fx ? tm : -1, price: fx ? (+e || bp) : 0, st: fx ? 's' : 'p', f: /fem|wom/i.test(b || '') } }), cur: null, sales: [], ev: null, view: 'auction', filt: '', rv: 2, teamSetupVersion: 1 } }
+        let S, seen = 0, reeling = false, mute = false, AC, ovT, shown = 0, DB = null, RO = VIEW || !LOCAL, DBOK = false, lastJ = '', wBusy = false, wPend = false, LV = null, first = true;
+        const canEdit = () => !VIEW && !RO;
+        function build(cfg, tt, pt) { S = { cfg, teams: tt.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 8).map((l, i) => { const fields = l.split(',').map(x => x.trim()), name = fields.shift(), color = /^#[0-9a-f]{6}$/i.test(fields.at(-1) || '') ? fields.pop() : PAL[i]; return { id: i, name, owner: fields.join(', '), color } }), players: pt.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const [a, b, c, d, e] = l.split(',').map(x => x.trim()); const cat = norm(b), tm = parseInt(d) - 1, fx = tm >= 0 && tm < 8, bp = +c || CATS[cat][2]; return { id: i, name: a, cat, base: bp, team: fx ? tm : -1, price: fx ? (+e || bp) : 0, st: fx ? 's' : 'p', f: /fem|wom/i.test(b || '') } }), cur: null, sales: [], ev: null, view: 'auction', filt: '', rv: 2, teamSetupVersion: 1 } }
         function reset() { build({ title: LEAGUE_TITLE, purse: 200000, squad: 11, inc: 1000, reserve: 2000 }, T0, P0) }
         try { S = JSON.parse(localStorage.getItem(K)); if (!S || !S.teams) S = null } catch (e) { S = null }
         if (!S) reset();
         const teamSetupChanged = migrateTeamSetup(S);
         if (DISP) { document.body.classList.add('present'); $('#bExitPres').hidden = false; }
         seen = S.ev ? S.ev.ts : 0;
-        const save = () => { try { localStorage.setItem(K, JSON.stringify(S)) } catch (e) { } push() };
+        const save = () => { if (!canEdit()) return; try { localStorage.setItem(K, JSON.stringify(S)) } catch (e) { } push() };
         if (teamSetupChanged) save();
         if (S.rv !== 2) { S.players.forEach(p => { if (p.cat === 'Female Player' || /pallavi/i.test(p.name)) p.f = true; if (!(p.st === 's' && !S.sales.includes(p.id))) p.base = CATS[p.cat][2] }); S.cfg.reserve = 2000; S.cfg.inc = Math.max(1000, S.cfg.inc || 1000); S.rv = 2; save() }
         const pl = id => S.players[id], tp = t => S.players.filter(p => p.team === t.id), spent = t => tp(t).reduce((a, p) => a + p.price, 0), purse = t => S.cfg.purse - spent(t), slots = t => S.cfg.squad - tp(t).length;
         const mb = (t, p) => Math.max(0, purse(t) - ((p && p.f) || tp(t).some(x => x.f) ? 0 : S.cfg.reserve)), maxBid = t => mb(t, S.cur && pl(S.cur.pid)), roster = t => S.players.filter(p => p.team === t.id && !S.sales.includes(p.id)).concat(S.sales.map(pl).filter(p => p.team === t.id));
         const nextBid = t => S.cur.lead === null ? pl(S.cur.pid).base : S.cur.bid + S.cfg.inc;
-        const canBid = t => S.cur && !reeling && slots(t) > 0 && S.cur.lead !== t.id && nextBid(t) <= maxBid(t);
+        const canBid = t => canEdit() && S.cur && !reeling && slots(t) > 0 && S.cur.lead !== t.id && nextBid(t) <= maxBid(t);
         function beep(f = 660, d = .12, ty = 'sine', v = .09) { if (mute) return; try { AC = AC || new AudioContext(); const o = AC.createOscillator(), g = AC.createGain(); o.type = ty; o.frequency.value = f; g.gain.value = v; o.connect(g); g.connect(AC.destination); o.start(); g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + d); o.stop(AC.currentTime + d) } catch (e) { } }
-        function bid(i) { const t = S.teams[i]; if (!t) return; if (!canBid(t)) { beep(180, .2, 'square', .05); return } S.cur.bid = nextBid(t); S.cur.lead = t.id; S.cur.hist.unshift([t.id, S.cur.bid]); beep(520 + S.cur.hist.length * 25, .1, 'triangle'); save(); render() }
-        function sold() { const c = S.cur; if (!c || c.lead === null || slots(S.teams[c.lead]) <= 0) return; const p = pl(c.pid); p.team = c.lead; p.price = c.bid; p.st = 's'; S.sales.push(p.id); S.ev = { k: 'sold', pid: p.id, t: c.lead, price: c.bid, ts: Date.now() }; S.cur = null; save(); render() }
-        function unsold() { const c = S.cur; if (!c) return; const p = pl(c.pid); p.st = 'u'; S.ev = { k: 'unsold', pid: p.id, t: -1, price: 0, ts: Date.now() }; S.cur = null; save(); render() }
-        function undoBid() { const c = S.cur; if (!c || !c.hist.length) return; c.hist.shift(); if (c.hist.length) { c.lead = c.hist[0][0]; c.bid = c.hist[0][1] } else { c.lead = null; c.bid = pl(c.pid).base } save(); render() }
-        function undoSale() { if (S.cur || !S.sales.length) return; const p = pl(S.sales.pop()), t = p.team, pr = p.price; p.team = -1; p.price = 0; p.st = 'p'; S.cur = { pid: p.id, bid: pr, lead: t, hist: [[t, pr]] }; S.ev = null; save(); render() }
-        function draw() {
+        function bid(i) { if (!canEdit()) return; const t = S.teams[i]; if (!t) return; if (!canBid(t)) { beep(180, .2, 'square', .05); return } S.cur.bid = nextBid(t); S.cur.lead = t.id; S.cur.hist.unshift([t.id, S.cur.bid]); beep(520 + S.cur.hist.length * 25, .1, 'triangle'); save(); render() }
+        function sold() { if (!canEdit()) return; const c = S.cur; if (!c || c.lead === null || slots(S.teams[c.lead]) <= 0) return; const p = pl(c.pid); p.team = c.lead; p.price = c.bid; p.st = 's'; S.sales.push(p.id); S.ev = { k: 'sold', pid: p.id, t: c.lead, price: c.bid, ts: Date.now() }; S.cur = null; save(); render() }
+        function unsold() { if (!canEdit()) return; const c = S.cur; if (!c) return; const p = pl(c.pid); p.st = 'u'; S.ev = { k: 'unsold', pid: p.id, t: -1, price: 0, ts: Date.now() }; S.cur = null; save(); render() }
+        function undoBid() { if (!canEdit()) return; const c = S.cur; if (!c || !c.hist.length) return; c.hist.shift(); if (c.hist.length) { c.lead = c.hist[0][0]; c.bid = c.hist[0][1] } else { c.lead = null; c.bid = pl(c.pid).base } save(); render() }
+        function undoSale() { if (!canEdit()) return; if (S.cur || !S.sales.length) return; const p = pl(S.sales.pop()), t = p.team, pr = p.price; p.team = -1; p.price = 0; p.st = 'p'; S.cur = { pid: p.id, bid: pr, lead: t, hist: [[t, pr]] }; S.ev = null; save(); render() }
+        function draw() { if (!canEdit()) return;
             if (reeling || S.cur) return; let pool = S.players.filter(p => p.st === 'p' && p.cat !== 'Icon' && p.cat !== 'Owner' && (!S.filt || p.cat === S.filt));
             if (!pool.length) { const u = S.players.filter(p => p.st === 'u'); if (u.length) { u.forEach(p => p.st = 'p'); S.acc = true; save(); render() } return }
             const pick = pool[Math.floor(Math.random() * pool.length)]; reeling = true; render(); let n = 0;
@@ -140,8 +159,11 @@
             </div>` : '<span class="text-muted">Waiting for the first bid…</span>';
         }
         function render(skip) {
+            document.body.classList.toggle('ro', !canEdit());
+            $('#auth-panel').hidden = location.pathname !== '/auth' || VIEW || !RO;
+            $('#bShare').disabled = !DBOK;
             const v = DISP ? (S.view === 'setup' || S.view === 'players' ? 'auction' : S.view) : RO ? (LV || 'auction') : S.view; document.body.dataset.v = v;
-            ['auction', 'squads', 'setup', 'players'].forEach(x => { $('#v-' + x).hidden = x !== v }); $('#ttl').textContent = S.cfg.title; document.querySelector('.live').innerHTML = '<i class="h-2 w-2 shrink-0 rounded-full bg-rose-400" aria-hidden="true"></i>' + (S.acc ? 'ACCELERATED ROUND' : 'LIVE') + (RO ? ' · VIEW ONLY' : '') + (DBOK ? ' · SYNCED' : '');
+            ['auction', 'squads', 'setup', 'players'].forEach(x => { $('#v-' + x).hidden = x !== v }); $('#ttl').textContent = S.cfg.title; document.querySelector('.live').innerHTML = '<i class="h-2 w-2 shrink-0 rounded-full bg-rose-400" aria-hidden="true"></i>' + (DBOK ? S.acc ? 'ACCELERATED ROUND' : 'LIVE' : LOCAL && !VIEW ? 'LOCAL PREVIEW' : 'CONNECTING') + (RO ? ' · VIEW ONLY' : '') + (DBOK ? ' · SYNCED' : '');
             const nk = v === 'players' && S.pf === 'u' ? 'unsold' : v; document.querySelectorAll('nav button').forEach(b => { b.classList.toggle('on', b.dataset.v === nk); b.setAttribute('aria-current', b.dataset.v === nk ? 'page' : 'false'); if (b.dataset.v === 'unsold') b.textContent = 'Unsold (' + S.players.filter(p => p.st === 'u').length + ')' }); if (v === 'players' && !skip) renderPlayers(); if (v === 'setup' && !$('#sT')) fillSetup();
             const so = S.players.filter(p => p.st === 's'), top = S.sales.reduce((a, id) => Math.max(a, pl(id).price), 0);
             $('#stats').innerHTML = [['Picked', S.players.filter(p => p.st === 's' && !S.sales.includes(p.id)).length], ['Sold', S.sales.length + '/' + S.players.filter(p => p.st !== 's' || S.sales.includes(p.id)).length], ['Unsold', S.players.filter(p => p.st === 'u').length], ['Spent', fmt(so.reduce((a, p) => a + p.price, 0))], ['Top buy', fmt(top)]].map(x => `<div class="min-w-0"><b class="block break-words font-display text-2xl font-normal leading-tight tabular-nums text-gold sm:text-3xl">${x[1]}</b><span class="text-xs uppercase tracking-widest text-muted">${x[0]}</span></div>`).join('');
@@ -191,7 +213,7 @@
         });
         const cv = $('#cf'), cx = cv.getContext('2d'); let ps = [], raf = 0;
         function boom(c) { cv.width = innerWidth; cv.height = innerHeight; ps = []; for (let i = 0; i < 260; i++)ps.push({ x: cv.width / 2, y: cv.height * .55, vx: (Math.random() - .5) * 30, vy: -Math.random() * 26 - 6, r: Math.random() * 8 + 4, c: [c, '#ffc83d', '#fff', '#ff4d6d'][i % 4], a: Math.random() * 6, s: Math.random() * .4 - .2 }); cancelAnimationFrame(raf); (function f() { cx.clearRect(0, 0, cv.width, cv.height); ps = ps.filter(p => p.y < cv.height + 30); ps.forEach(p => { p.vy += .5; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.a += p.s; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.a); cx.fillStyle = p.c; cx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); cx.restore() }); if (ps.length) raf = requestAnimationFrame(f) })() }
-        function fillSetup() {
+        function fillSetup() { if (!canEdit()) return;
             const c = S.cfg; $('#v-setup').innerHTML = `<div class="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2"><div class="flex min-w-0 flex-col gap-4 rounded-2xl border border-line bg-panel p-4 sm:p-6"><h2>Auction settings</h2>
 <label>Title<input id="sT" value="${esc(c.title)}"></label>
 <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2"><label>Purse per team (₹)<input id="sP" type="number" value="${c.purse}"></label><label>Squad size<input id="sS" type="number" value="${c.squad}"></label><label>Bid step (₹)<input id="sI" type="number" value="${c.inc}"></label><label>Female-player reserve (₹)<input id="sR" type="number" value="${c.reserve}"></label></div>
@@ -205,8 +227,8 @@
             $('#sC').onclick = () => { const rows = ['Team,Player,Category,Price'].concat(S.players.filter(p => p.st === 's').map(p => [S.teams[p.team].name, p.name, p.cat, p.price].join(','))); $('#sM').innerHTML = '<textarea readonly rows="8" class="w-full">' + esc(rows.join('\n')) + '</textarea>' }
         }
         function go(v) { if (RO) { LV = v === 'squads' ? 'squads' : 'auction'; render(); return } if (v === 'unsold') { S.pf = 'u'; v = 'players' } else if (v === 'players') S.pf = ''; S.view = v; save(); render(); if (v === 'setup') fillSetup() }
-        document.addEventListener('click', e => { const b = e.target.closest('button,#bids .tb'); if (!b) return; if (b.dataset.v) go(b.dataset.v); else if (b.dataset.i !== undefined) bid(+b.dataset.i); else if (b.dataset.inc) { S.cfg.inc = +b.dataset.inc; save(); render() } else if (b.dataset.rm !== undefined) rmPlayer(b); else if (b.dataset.a) rowAct(b); else if (b.dataset.pf !== undefined) { S.pf = b.dataset.pf; save(); render() } });
-        $('#filt').onchange = e => { S.filt = e.target.value; save() };
+        document.addEventListener('click', e => { const b = e.target.closest('button,#bids .tb'); if (!b) return; if (b.dataset.v) go(b.dataset.v); else if (!canEdit()) return; else if (b.dataset.i !== undefined) bid(+b.dataset.i); else if (b.dataset.inc) { S.cfg.inc = +b.dataset.inc; save(); render() } else if (b.dataset.rm !== undefined) rmPlayer(b); else if (b.dataset.a) rowAct(b); else if (b.dataset.pf !== undefined) { S.pf = b.dataset.pf; save(); render() } });
+        $('#filt').onchange = e => { if (!canEdit()) return; S.filt = e.target.value; save() };
         $('#bDraw').onclick = draw; $('#bSold').onclick = sold; $('#bUns').onclick = unsold; $('#bUb').onclick = undoBid; $('#bUs').onclick = undoSale;
         function togglePresentation() { const active = document.body.classList.toggle('present'); $('#bExitPres').hidden = !active; $('#bPres').setAttribute('aria-pressed', String(active)); }
         $('#bExitPres').onclick = togglePresentation;
@@ -218,8 +240,8 @@
         });
         addEventListener('storage', e => { if (e.key === K && e.newValue) { try { S = JSON.parse(e.newValue); migrateTeamSetup(S); render() } catch (x) { } } });
         const STL = { p: 'In pool', s: 'Sold', u: 'Unsold' };
-        function release(p) { p.team = -1; p.price = 0; S.sales = S.sales.filter(x => x !== p.id) }
-        function rmPlayer(b) { if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Remove?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = '✕' }, 3000); return } const p = pl(+b.dataset.rm); release(p); p.st = 'p'; save(); render() }
+        function release(p) { if (!canEdit()) return; p.team = -1; p.price = 0; S.sales = S.sales.filter(x => x !== p.id) }
+        function rmPlayer(b) { if (!canEdit()) return; if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Remove?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = '✕' }, 3000); return } const p = pl(+b.dataset.rm); release(p); p.st = 'p'; save(); render() }
         function row(p) {
             const on = S.cur && S.cur.pid === p.id, dis = S.cur || reeling ? 'disabled title="Finish the current player first"' : '', off = on ? 'disabled' : '';
             return `<div class="player-row" data-id="${p.id}"><label class="col-span-full sm:col-span-1"><span data-player-name class="break-words text-base text-ink [overflow-wrap:anywhere]">${esc(p.name)}</span><span class="sr-only">Player name</span><input data-f="name" value="${esc(p.name)}" aria-label="Player name"></label><label>Category<select data-f="cat">${Object.keys(CATS).map(c => `<option ${p.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label><label>Base price (₹)<input data-f="base" type="number" value="${p.base}"></label><label>Team<select data-f="team"><option value="-1">Not in a team</option>${S.teams.map(t => `<option value="${t.id}" ${p.team === t.id ? 'selected' : slots(t) <= 0 ? 'disabled' : ''}>${esc(teamLabel(t))}${slots(t) <= 0 && p.team !== t.id ? ' - squad full' : ''}</option>`).join('')}</select></label><label>Sold price (₹)<input data-f="price" type="number" value="${p.price}"></label><span class="stt ${on ? 'p' : p.st}">${on ? 'On stage' : p.st === 's' && !S.sales.includes(p.id) ? 'Picked' : STL[p.st]}</span><span class="col-span-full flex flex-wrap gap-2"><button class="btn" data-a="now" ${dis}>▶ ${p.st === 's' ? 'Re-auction' : 'Auction now'}</button>${p.st === 'p' ? `<button class="btn" data-a="uns" ${off}>Mark unsold</button>` : `<button class="btn" data-a="rel" ${off}>↺ ${p.st === 's' ? 'Release' : 'Back to pool'}</button>`}${p.st === 'u' ? `<button class="btn" data-a="draw" ${dis || (S.teams.some(t => slots(t) > 0 && purse(t) >= p.base) ? '' : 'disabled')}>🎲 Random draw</button>` : ''}</span></div>`
@@ -228,7 +250,7 @@
             const n = { p: 0, s: 0, u: 0 }; S.players.forEach(p => n[p.st]++); const f = S.pf || '', L = S.players.filter(p => !f || p.st === f), chip = (k, l, c) => `<button class="btn ${f === k ? 'on' : ''}" data-pf="${k}">${l} ${c}</button>`;
             $('#v-players').innerHTML = `<div class="flex min-w-0 flex-col gap-3"><div class="flex min-w-0 flex-wrap items-center gap-2">${chip('', 'All', S.players.length)}${chip('p', 'In pool', n.p)}${chip('s', 'Sold', n.s)}${chip('u', 'Unsold', n.u)}<span class="w-full text-sm text-muted sm:ml-auto sm:w-auto">Edit any field and it saves instantly</span>${n.u ? '<button class="btn pri" data-a="allpool">↺ Send all unsold back to pool</button>' : ''}</div>${L.map(row).join('') || '<p class="text-muted">No players here.</p>'}</div>`
         }
-        function rowAct(b) {
+        function rowAct(b) { if (!canEdit()) return;
             const a = b.dataset.a, r = b.closest('.player-row'), p = r && pl(+r.dataset.id);
             if (a === 'allpool') { S.players.forEach(x => { if (x.st === 'u') x.st = 'p' }); S.acc = true }
             else if (!p || reeling) return;
@@ -238,7 +260,7 @@
             else if (a === 'now') { if (S.cur) return; release(p); p.st = 'p'; S.cur = { pid: p.id, bid: p.base, lead: null, hist: [] }; S.view = 'auction' }
             save(); render()
         }
-        $('#v-players').addEventListener('change', e => {
+        $('#v-players').addEventListener('change', e => { if (!canEdit()) return;
             const f = e.target.dataset.f, r = e.target.closest('.player-row'); if (!f || !r) return; const p = pl(+r.dataset.id), v = e.target.value;
             if (S.cur && S.cur.pid === p.id && (f === 'team' || f === 'price')) { render(); return }
             if (f === 'name') { p.name = v.trim() || p.name; r.querySelector('[data-player-name]').textContent = p.name; } else if (f === 'cat') { p.cat = v; if (v === 'Female Player') p.f = true } else if (f === 'base') p.base = +v || p.base; else if (f === 'price') p.price = Math.max(0, +v || 0);
@@ -246,16 +268,10 @@
             save(); f === 'team' ? render() : render(1)
         });
         render(); if (S.view === 'setup' && !DISP) fillSetup();
-        async function push() { if (!DB || RO) return; if (wBusy) { wPend = true; return } wBusy = true; try { do { wPend = false; S.v = (S.v || 0) + 1; lastJ = JSON.stringify(S); await DB.doc('auction/state').set({ json: lastJ }) } while (wPend) } catch (e) { console.error(e) } wBusy = false }
-        function applyRemote(j) { if (typeof j !== 'string' || j === lastJ) return; let n; try { n = JSON.parse(j) } catch (e) { return } if (!n || !n.teams || (!first && (n.v || 0) < (S.v || 0))) return; lastJ = j; S = n; migrateTeamSetup(S); if (first) seen = S.ev ? S.ev.ts : 0; first = false; try { localStorage.setItem(K, JSON.stringify(S)) } catch (e) { } render() }
-        (async () => {
-            try {
-                const c = window.claude, db = c && await c.use('db'); if (!db) return; const u = await c.use('user'); DB = db; RO = u ? !(await u.canEdit()) : true; document.body.classList.toggle('ro', RO);
-                const tm = setTimeout(() => { DBOK = false; render() }, 10000);
-                db.doc('auction/state').onSnapshot(s => { clearTimeout(tm); DBOK = true; if (s.exists) applyRemote((s.data() || {}).json); else if (!RO) push(); render() }, () => { DBOK = false; render() })
-            } catch (e) { }
-        })();
+        async function push() { if (!DB || !canEdit()) return; if (wBusy) { wPend = true; return } wBusy = true; try { do { wPend = false; if (!window.auctionApiConnected) S.v = (S.v || 0) + 1; lastJ = JSON.stringify(S); await DB.doc('auction/state').set({ json: lastJ }) } while (wPend) } catch (e) { console.error(e); const notice = $('#connection-status'); notice.hidden = false; notice.textContent = e.message || 'Live auction could not be saved. Reconnect before continuing.'; } wBusy = false }
+        function applyRemote(j) { if (typeof j !== 'string' || j === lastJ) return; let n; try { n = JSON.parse(j) } catch (e) { return } if (!n || !n.teams || (!first && (n.v || 0) < (S.v || 0))) return; lastJ = j; S = n; migrateTeamSetup(S); if (first) seen = S.ev ? S.ev.ts : 0; first = false; try { !VIEW && localStorage.setItem(K, JSON.stringify(S)) } catch (e) { } render() }
     </script>
+    <script src="./assets/live.js"></script>
 </body>
 
 </html>

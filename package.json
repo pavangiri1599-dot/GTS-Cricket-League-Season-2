@@ -4,13 +4,18 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "node scripts/serve.mjs",
-    "test": "node --test tests/ui.test.mjs",
+    "dev": "node --env-file-if-exists=.env.local scripts/serve.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
     "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "4.3.3",
     "playwright": "1.64.1",
     "tailwindcss": "4.3.3"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "drizzle-orm": "^0.45.4"
   }
 }
