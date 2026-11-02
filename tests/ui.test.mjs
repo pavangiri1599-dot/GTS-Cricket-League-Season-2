@@ -27,6 +27,10 @@ async function open(viewport = { width: 375, height: 812 }, options = {}) {
   await page.route('https://fonts.googleapis.com/**', route => route.abort());
   await page.goto(base);
   await page.locator('#teams .tc').first().waitFor();
+  await page.locator('#bAccess').click();
+  await page.locator('#operator-password').fill('GTS 26');
+  await page.locator('#login-form button').click();
+  await page.waitForFunction(() => !RO);
   return { context, page, errors };
 }
 
@@ -151,8 +155,7 @@ test('presentation has a touch exit; display and read-only modes render usable s
   await checkLayout(page, 'display mode');
   assert.equal(await page.locator('#bids').isHidden(), true);
   const ro = await context.newPage();
-  await ro.addInitScript(() => { window.claude = { use: async name => name === 'user' ? { canEdit: async () => false } : { doc: () => ({ onSnapshot: () => {} }) } }; });
-  await ro.goto(base);
+  await ro.goto(base + '/watch');
   await ro.waitForFunction(() => document.body.classList.contains('ro'));
   assert.equal(await ro.locator('#bids').isHidden(), true);
   await ro.locator('nav [data-v="squads"]').click();
@@ -203,7 +206,7 @@ test('eleven-slot squads and team/owner headings appear across the interface', a
   await context.close();
 });
 
-test('existing saved and synced auctions gain new team labels and slots without changing players or bids', async () => {
+test('existing saved and shared-browser auctions gain new team labels and slots without changing players or bids', async () => {
   const { context, page, errors } = await open();
   const legacy = await page.evaluate(() => {
     const state = structuredClone(S);
@@ -224,7 +227,7 @@ test('existing saved and synced auctions gain new team labels and slots without 
   assert.deepEqual(migrated.sales, legacy.sales);
   assert.equal(migrated.teams[5].name, 'Dhurandhar');
   assert.equal(migrated.teams[5].owner, 'Sudip & Kunal');
-  await page.evaluate(state => applyRemote(JSON.stringify({ ...state, v: 100 })), legacy);
+  await page.evaluate(state => applyStoredState(JSON.stringify({ ...state, v: 100 })), legacy);
   assert.equal(await page.evaluate(() => S.cfg.squad), 11);
   assert.equal(await page.evaluate(() => S.teams[0].name), 'Team A');
   assert.deepEqual(await page.evaluate(() => S.players), legacy.players);
@@ -232,7 +235,7 @@ test('existing saved and synced auctions gain new team labels and slots without 
   custom.cfg.squad = 12;
   custom.teams[0].name = 'Custom Team';
   custom.teams[0].owner = 'Custom Owner';
-  await page.evaluate(state => applyRemote(JSON.stringify({ ...state, v: 101 })), custom);
+  await page.evaluate(state => applyStoredState(JSON.stringify({ ...state, v: 101 })), custom);
   assert.equal(await page.evaluate(() => S.cfg.squad), 12);
   assert.equal(await page.evaluate(() => S.teams[0].name), 'Custom Team');
   await page.evaluate(() => {
@@ -327,7 +330,7 @@ test('the current leading team is prominent and changes on bids and undo without
   await context.close();
 });
 
-test('the header logo loads locally and the new league title upgrades saved and synced auctions', async () => {
+test('the header logo loads locally and the new league title upgrades saved and shared-browser auctions', async () => {
   const { context, page } = await open();
   const title = 'GTS Cricket League Season 2';
   assert.equal(await page.locator('#ttl').textContent(), title);
@@ -350,7 +353,7 @@ test('the header logo loads locally and the new league title upgrades saved and 
   assert.deepEqual(await page.evaluate(() => S.players), before.players);
   assert.deepEqual(await page.evaluate(() => S.cur), before.cur);
   assert.deepEqual(await page.evaluate(() => S.sales), before.sales);
-  await page.evaluate(state => applyRemote(JSON.stringify({ ...state, v: 100 })), before);
+  await page.evaluate(state => applyStoredState(JSON.stringify({ ...state, v: 100 })), before);
   assert.equal(await page.locator('#ttl').textContent(), title);
   await page.locator('nav [data-v="setup"]').click();
   assert.equal(await page.locator('#sT').inputValue(), title);

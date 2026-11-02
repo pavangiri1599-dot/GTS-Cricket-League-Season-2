@@ -24,15 +24,16 @@
             <nav id="nav" aria-label="Main navigation" class="flex w-full flex-wrap gap-2 lg:ml-auto lg:w-auto"><button data-v="auction">Auction</button><button data-v="squads">Squads</button><button
                     data-v="unsold">Unsold</button><button data-v="players">Players</button><button
                     data-v="setup">Setup</button></nav>
+            <button id="bAccess" class="btn" aria-expanded="false" aria-controls="auth-panel">Unlock editing</button>
             <div class="grid w-full grid-cols-3 gap-3 rounded-2xl border border-line bg-panel p-3 sm:grid-cols-5 sm:p-4" id="stats"></div>
         </header>
         <p id="connection-status" hidden role="status" class="rounded-xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100"></p>
         <section id="auth-panel" hidden class="mx-auto w-full max-w-md rounded-2xl border border-line bg-panel p-5">
-            <h2>Operator sign in</h2>
-            <p class="mt-2 text-sm text-muted">Enter the operator password to control this auction. Spectators can watch without signing in.</p>
+            <h2>Unlock editing</h2>
+            <p class="mt-2 text-sm text-muted">Enter the editing password to manage this browser's auction. Viewing does not need a password.</p>
             <form id="login-form" class="mt-4 flex flex-col gap-3">
                 <label>Operator password<input id="operator-password" type="password" autocomplete="current-password" required></label>
-                <button class="btn pri" type="submit">Sign in</button>
+                <button class="btn pri" type="submit">Unlock editing</button>
                 <p id="login-message" role="status" class="text-sm text-muted"></p>
             </form>
         </section>
@@ -60,8 +61,7 @@
                 <button class="btn" id="bMute">Sound on<kbd>M</kbd></button>
                 <button class="btn" id="bPres" aria-pressed="false">Present<kbd>H</kbd></button>
                 <button class="btn" id="bDisp">Open display ↗</button>
-                <button class="btn" id="bShare" disabled>Copy viewing link</button>
-                <button class="btn" id="bLogout" hidden>Sign out</button>
+                <button class="btn" id="bShare">Copy viewing link</button>
             </div>
             <div class="grid grid-cols-2 gap-2 md:grid-cols-3 xl:col-start-1 xl:row-start-2 2xl:grid-cols-[repeat(var(--team-count,6),minmax(0,1fr))]" id="bids" aria-label="Team bids"></div>
             <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:grid-cols-1" id="teams"></div>
@@ -78,7 +78,9 @@
     <script>
         const $ = s => document.querySelector(s), K = 'gts-auction-v3', DISP = location.hash === '#display';
         const VIEW = DISP || location.pathname.replace(/\/$/, '') === '/watch' || new URLSearchParams(location.search).get('view') === '1';
-        const LOCAL = location.protocol === 'file:' || ['127.0.0.1', 'localhost', '::1'].includes(location.hostname);
+        const EDIT_SESSION_KEY = 'gts-editing-unlocked-v1';
+        let editingUnlocked = false, authOpen = location.pathname.replace(/\/$/, '') === '/auth';
+        try { editingUnlocked = sessionStorage.getItem(EDIT_SESSION_KEY) === 'yes'; } catch (e) { }
         const LEAGUE_TITLE = 'GTS Cricket League Season 2';
         const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         const fmt = n => '₹' + Number(n).toLocaleString('en-IN');
@@ -113,7 +115,7 @@
             return true;
         }
         const P0 = ("Suraj Panchal,Icon,40000,1,40000;Vishal Tiwari,Icon,40000,2,40000;Mandar Ghugare,Icon,40000,3,40000;Nishant Patil,Icon,40000,4,40000;Sanil Gaikwad,Icon,40000,5,40000;Pavan Giri,Icon,40000,6,40000;Tejas Sawant,Owner,30000,1,30000;Rohit Singh,Owner,30000,1,30000;Nahas Khalid,Owner,30000,3,30000;Rakshit Deshmukh,Owner,30000,4,30000;Pallavi Kudtarkar,Female Owner,15000,4,15000;Nevedita Kale,Female;Kalyani Dhoke,Female;Aditi Dalvi,Female;Priya Chaudhary,Female;Simran Datkhile,Female;Rupesh Gawli,AR;Viral Bhatt,AR;Prashant Shinde,AR;Pravin Kore,AR;Larry D'Cruz,Bat;Rohan Bhanushali,Bat;Kunal Tawate,Bat;Sanjay Gupta,Bat;Sandeep Santhanam,Bat;Gunaseelan V,Bat;Nilesh Shinde,Bat;Pronnoy Choudhury,Bat;Deepak Hirawat,Bat;Pavan Mokashi,Bat;Tushar Gaikwad,Bat;Pushkar Pillewar,Bat;Suraj Nishad,Bat;Omkar Madhvi,Bat;Sonu Thakur,Bat;Yashraj Salian,Bowl;Rahul Patil,Bowl;Mandar Jawalkar,Bowl;Sunny Mishra,Bowl;Viraj Raorane,Bowl;Om Patel,Bowl;Sarvar Nivsekar,Bowl;Aman Bajaj,Bowl;Sunny Kumar,Bowl;Kunal Mittal,New;Prashant Kasbe,New;Anshuman Mukherjee,New;Nilesh Upsham,New").split(';').join('\n');
-        let S, seen = 0, reeling = false, mute = false, AC, ovT, shown = 0, DB = null, RO = VIEW || !LOCAL, DBOK = false, lastJ = '', wBusy = false, wPend = false, LV = null, first = true;
+        let S, seen = 0, reeling = false, mute = false, AC, ovT, shown = 0, reelTimer, RO = VIEW || !editingUnlocked, lastJ = '', LV = null;
         const canEdit = () => !VIEW && !RO;
         function build(cfg, tt, pt) { S = { cfg, teams: tt.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 8).map((l, i) => { const fields = l.split(',').map(x => x.trim()), name = fields.shift(), color = /^#[0-9a-f]{6}$/i.test(fields.at(-1) || '') ? fields.pop() : PAL[i]; return { id: i, name, owner: fields.join(', '), color } }), players: pt.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const [a, b, c, d, e] = l.split(',').map(x => x.trim()); const cat = norm(b), tm = parseInt(d) - 1, fx = tm >= 0 && tm < 8, bp = +c || CATS[cat][2]; return { id: i, name: a, cat, base: bp, team: fx ? tm : -1, price: fx ? (+e || bp) : 0, st: fx ? 's' : 'p', f: /fem|wom/i.test(b || '') } }), cur: null, sales: [], ev: null, view: 'auction', filt: '', rv: 2, teamSetupVersion: 1 } }
         function reset() { build({ title: LEAGUE_TITLE, purse: 200000, squad: 11, inc: 1000, reserve: 2000 }, T0, P0) }
@@ -122,7 +124,12 @@
         const teamSetupChanged = migrateTeamSetup(S);
         if (DISP) { document.body.classList.add('present'); $('#bExitPres').hidden = false; }
         seen = S.ev ? S.ev.ts : 0;
-        const save = () => { if (!canEdit()) return; try { localStorage.setItem(K, JSON.stringify(S)) } catch (e) { } push() };
+        const save = () => {
+            if (!canEdit()) return;
+            S.v = (S.v || 0) + 1;
+            try { lastJ = JSON.stringify(S); localStorage.setItem(K, lastJ); }
+            catch (e) { $('#connection-status').hidden = false; $('#connection-status').textContent = 'Browser storage is unavailable. Keep this tab open to retain the auction.'; }
+        };
         if (teamSetupChanged) save();
         if (S.rv !== 2) { S.players.forEach(p => { if (p.cat === 'Female Player' || /pallavi/i.test(p.name)) p.f = true; if (!(p.st === 's' && !S.sales.includes(p.id))) p.base = CATS[p.cat][2] }); S.cfg.reserve = 2000; S.cfg.inc = Math.max(1000, S.cfg.inc || 1000); S.rv = 2; save() }
         const pl = id => S.players[id], tp = t => S.players.filter(p => p.team === t.id), spent = t => tp(t).reduce((a, p) => a + p.price, 0), purse = t => S.cfg.purse - spent(t), slots = t => S.cfg.squad - tp(t).length;
@@ -139,7 +146,7 @@
             if (reeling || S.cur) return; let pool = S.players.filter(p => p.st === 'p' && p.cat !== 'Icon' && p.cat !== 'Owner' && (!S.filt || p.cat === S.filt));
             if (!pool.length) { const u = S.players.filter(p => p.st === 'u'); if (u.length) { u.forEach(p => p.st = 'p'); S.acc = true; save(); render() } return }
             const pick = pool[Math.floor(Math.random() * pool.length)]; reeling = true; render(); let n = 0;
-            const iv = setInterval(() => { const r = pool[Math.floor(Math.random() * pool.length)]; $('#pname').textContent = r.name; $('#cat').textContent = CATS[r.cat][0] + ' ' + r.cat.toUpperCase(); $('#cat').style.color = CATS[r.cat][1]; beep(300 + n * 18, .05, 'square', .03); if (++n > 26) { clearInterval(iv); reeling = false; S.cur = { pid: pick.id, bid: pick.base, lead: null, hist: [] }; beep(880, .25, 'triangle'); save(); render() } }, 70)
+            reelTimer = setInterval(() => { const r = pool[Math.floor(Math.random() * pool.length)]; $('#pname').textContent = r.name; $('#cat').textContent = CATS[r.cat][0] + ' ' + r.cat.toUpperCase(); $('#cat').style.color = CATS[r.cat][1]; beep(300 + n * 18, .05, 'square', .03); if (++n > 26) { clearInterval(reelTimer); reelTimer = null; reeling = false; S.cur = { pid: pick.id, bid: pick.base, lead: null, hist: [] }; beep(880, .25, 'triangle'); save(); render() } }, 70)
         }
         function setBid(to) { const el = $('#bid'); if (shown === to && el.textContent) return; if (matchMedia('(prefers-reduced-motion: reduce)').matches) { shown = to; el.textContent = fmt(to); return } const from = shown, t0 = performance.now(); shown = to; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); (function f(t) { const k = Math.min(1, (t - t0) / 450); el.textContent = fmt(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(f) })(t0) }
         function renderStage() {
@@ -160,10 +167,12 @@
         }
         function render(skip) {
             document.body.classList.toggle('ro', !canEdit());
-            $('#auth-panel').hidden = location.pathname !== '/auth' || VIEW || !RO;
-            $('#bShare').disabled = !DBOK;
+            $('#auth-panel').hidden = !authOpen || VIEW || !RO;
+            $('#bAccess').hidden = VIEW;
+            $('#bAccess').textContent = RO ? 'Unlock editing' : 'Lock editing';
+            $('#bAccess').setAttribute('aria-expanded', String(!$('#auth-panel').hidden));
             const v = DISP ? (S.view === 'setup' || S.view === 'players' ? 'auction' : S.view) : RO ? (LV || 'auction') : S.view; document.body.dataset.v = v;
-            ['auction', 'squads', 'setup', 'players'].forEach(x => { $('#v-' + x).hidden = x !== v }); $('#ttl').textContent = S.cfg.title; document.querySelector('.live').innerHTML = '<i class="h-2 w-2 shrink-0 rounded-full bg-rose-400" aria-hidden="true"></i>' + (DBOK ? S.acc ? 'ACCELERATED ROUND' : 'LIVE' : LOCAL && !VIEW ? 'LOCAL PREVIEW' : 'CONNECTING') + (RO ? ' · VIEW ONLY' : '') + (DBOK ? ' · SYNCED' : '');
+            ['auction', 'squads', 'setup', 'players'].forEach(x => { $('#v-' + x).hidden = x !== v }); $('#ttl').textContent = S.cfg.title; document.querySelector('.live').innerHTML = '<i class="h-2 w-2 shrink-0 rounded-full bg-rose-400" aria-hidden="true"></i>' + (S.acc ? 'ACCELERATED ROUND' : 'AUCTION') + (RO ? ' · VIEW ONLY' : ' · EDITING');
             const nk = v === 'players' && S.pf === 'u' ? 'unsold' : v; document.querySelectorAll('nav button').forEach(b => { b.classList.toggle('on', b.dataset.v === nk); b.setAttribute('aria-current', b.dataset.v === nk ? 'page' : 'false'); if (b.dataset.v === 'unsold') b.textContent = 'Unsold (' + S.players.filter(p => p.st === 'u').length + ')' }); if (v === 'players' && !skip) renderPlayers(); if (v === 'setup' && !$('#sT')) fillSetup();
             const so = S.players.filter(p => p.st === 's'), top = S.sales.reduce((a, id) => Math.max(a, pl(id).price), 0);
             $('#stats').innerHTML = [['Picked', S.players.filter(p => p.st === 's' && !S.sales.includes(p.id)).length], ['Sold', S.sales.length + '/' + S.players.filter(p => p.st !== 's' || S.sales.includes(p.id)).length], ['Unsold', S.players.filter(p => p.st === 'u').length], ['Spent', fmt(so.reduce((a, p) => a + p.price, 0))], ['Top buy', fmt(top)]].map(x => `<div class="min-w-0"><b class="block break-words font-display text-2xl font-normal leading-tight tabular-nums text-gold sm:text-3xl">${x[1]}</b><span class="text-xs uppercase tracking-widest text-muted">${x[0]}</span></div>`).join('');
@@ -238,7 +247,7 @@
             if (!$('#ov').hidden || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.tagName === 'BUTTON' && /^(Enter| )$/.test(e.key) || e.ctrlKey || e.metaKey || DISP || RO || S.view !== 'auction' && !/[hm]/i.test(e.key)) return; const k = e.key.toLowerCase();
             if (/^[1-8]$/.test(k)) bid(+k - 1); else if (k === 's' || k === 'enter') sold(); else if (k === 'u') unsold(); else if (k === 'n') draw(); else if (k === 'z') undoBid(); else if (k === 'x') undoSale(); else if (k === 'm') { mute = !mute; render() } else if (k === 'h') togglePresentation()
         });
-        addEventListener('storage', e => { if (e.key === K && e.newValue) { try { S = JSON.parse(e.newValue); migrateTeamSetup(S); render() } catch (x) { } } });
+        addEventListener('storage', e => { if (e.key === K && e.newValue) { applyStoredState(e.newValue) } });
         const STL = { p: 'In pool', s: 'Sold', u: 'Unsold' };
         function release(p) { if (!canEdit()) return; p.team = -1; p.price = 0; S.sales = S.sales.filter(x => x !== p.id) }
         function rmPlayer(b) { if (!canEdit()) return; if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Remove?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = '✕' }, 3000); return } const p = pl(+b.dataset.rm); release(p); p.st = 'p'; save(); render() }
@@ -268,10 +277,14 @@
             save(); f === 'team' ? render() : render(1)
         });
         render(); if (S.view === 'setup' && !DISP) fillSetup();
-        async function push() { if (!DB || !canEdit()) return; if (wBusy) { wPend = true; return } wBusy = true; try { do { wPend = false; if (!window.auctionApiConnected) S.v = (S.v || 0) + 1; lastJ = JSON.stringify(S); await DB.doc('auction/state').set({ json: lastJ }) } while (wPend) } catch (e) { console.error(e); const notice = $('#connection-status'); notice.hidden = false; notice.textContent = e.message || 'Live auction could not be saved. Reconnect before continuing.'; } wBusy = false }
-        function applyRemote(j) { if (typeof j !== 'string' || j === lastJ) return; let n; try { n = JSON.parse(j) } catch (e) { return } if (!n || !n.teams || (!first && (n.v || 0) < (S.v || 0))) return; lastJ = j; S = n; migrateTeamSetup(S); if (first) seen = S.ev ? S.ev.ts : 0; first = false; try { !VIEW && localStorage.setItem(K, JSON.stringify(S)) } catch (e) { } render() }
+        function applyStoredState(j) {
+            if (typeof j !== 'string' || j === lastJ) return;
+            let next; try { next = JSON.parse(j); } catch (e) { return; }
+            if (!next || !Array.isArray(next.teams) || !Array.isArray(next.players) || !next.cfg) return;
+            lastJ = j; S = next; migrateTeamSetup(S); render();
+        }
     </script>
-    <script src="./assets/live.js"></script>
+    <script src="./assets/access.js"></script>
 </body>
 
 </html>

@@ -13,7 +13,7 @@ A responsive cricket player auction dashboard for running a league auction from 
 - **Sale announcements:** show the player's name, winning team, owners, and final price in a dismissible result dialog.
 - **Undo controls:** undo the latest bid or sale. Bid history is retained internally for undo; the small history strip beneath the leading team is intentionally omitted.
 - **Presentation and display modes:** hide operator controls for a cleaner audience view, with a touch-friendly exit from presentation mode.
-- **Live spectator link:** `/watch` is view-only; `/auth` signs in the operator. Shared state is protected by the server and delivered to spectators on a two-second refresh interval once live hosting is configured.
+- **Simple editing lock:** everyone starts in viewing mode. Enter **GTS 26** to unlock editing in the current tab. No database, account, or environment variables are needed.
 - **Responsive and accessible layouts:** wrapping names, labeled fields, visible keyboard focus, large touch targets, reduced-motion support, and scrollable result dialogs.
 
 ### Leading team display
@@ -50,7 +50,7 @@ npm run dev
 
 Open **http://127.0.0.1:4173**. The preview serves the current source files; rerun the build after changing Tailwind classes or styles, then refresh the browser. Stop the preview with `Ctrl+C`.
 
-Without `.env.local`, this is a device-local preview. To test cross-device behavior, configure the live backend below. The preview server reads `.env.local` automatically when present.
+The app stores auction progress in this browser. It needs no `.env` file or server setup. Different browser profiles and devices have independent auction data.
 
 The generated stylesheet is committed in `assets/styles.css`, so the HTML can also be served by a basic static server. Styling does not depend on a Tailwind CDN. The existing Google Fonts link loads Bebas Neue and Rajdhani when available, with local font fallbacks.
 
@@ -90,71 +90,57 @@ Shortcuts work outside editable fields. Auction action shortcuts apply on the Au
 - `H`: toggle presentation mode.
 - `Escape`: dismiss an open result dialog.
 
-**Present** hides operator controls in the current tab. **Open display** opens the same auction at `#display` in another tab and follows its stored Auction/Squads view. Display mode also blocks editing. **Copy viewing link** copies `/watch`, where spectators can switch between Auction and Squads without changing the operator's view. Copying is enabled when live storage is connected.
+**Present** hides operator controls in the current tab. **Open display** opens the same auction at `#display` in another tab and follows the operator's Auction/Squads view. **Copy viewing link** copies `/watch`, where viewers can switch between Auction and Squads without changing the editing tab's view.
 
-## Live hosting setup
+## Viewing and editing
 
-The intended production links are:
+After deploying this version, use:
 
-- Spectators: `https://gts-five.vercel.app/watch`
-- Operator: `https://gts-five.vercel.app/auth`
+- **Editing entry:** https://gts-five.vercel.app/auth
+- **Viewing:** https://gts-five.vercel.app/watch
+- **Password:** `GTS 26` (including the space; capitalization matters).
 
-These routes require this version to be deployed and the server environment configured. Adding `/watch` or `#display` to the old static deployment does not enable cross-device updates or server-side access control.
+1. Open the site. It starts in view-only mode.
+2. Select **Unlock editing**, or open `/auth` directly.
+3. Enter **GTS 26** to enable bidding, drawing, selling, player changes, and Setup.
+4. Select **Lock editing** to return to viewing mode without resetting any auction data.
 
-1. Connect a Neon Postgres database to the Vercel project and set the server-only **`DATABASE_URL`** environment variable. Use an isolated development branch for testing before configuring the production database.
-2. Set **`AUCTION_ADMIN_PASSWORD`** to a unique, randomly generated password of at least 16 characters. Share it only with auction operators. Keep both values in Vercel environment variables; do not put them in HTML, Git, a viewing URL, or a chat message.
-3. Apply the tracked schema once using a direct database connection in `MIGRATION_DATABASE_URL` (or the database SQL editor). The migration only creates `gts_auction_state` if absent; it does not reset data:
+Unlocking is remembered in the current tab's session storage, so refreshing that tab retains access. `/watch` and `#display` always stay in viewing mode, even when opened from an editing tab.
 
-```bash
-npm run db:migrate
-```
+### What this simple mode does and does not do
 
-4. Deploy this repository to the existing Vercel project. Static assets come from `dist/`; `api/auction.mjs` and `api/session.mjs` run as Vercel functions.
-5. Open `/auth` in the browser that already has the auction progress, then sign in. If the database is empty, the operator's current browser state is published. If shared state already exists, that state is loaded instead.
-6. Copy the viewing link and verify it in another browser or phone. Spectators need no password and cannot place bids, sell players, edit squads, or reset the auction.
+The password is intentionally stored in frontend code as requested. It is a convenience lock against accidental edits, **not secure authentication**: someone inspecting or modifying their browser can discover or bypass it. Do not reuse this password for any other account.
 
-For local development, copy `.env.example` to the ignored `.env.local`, configure its values, apply the schema, then run `npm run dev`. On a deployed site, absent configuration fails closed with an explanatory notice; the app does not silently enable editing.
+Auction changes save under `gts-auction-v3` in browser local storage. Other tabs in the same browser profile on the same site receive changes automatically. **Other phones, computers, browser profiles, and origins do not receive live updates**; sharing a URL does not share browser storage. For an audience on separate devices without a backend, screen-share the auction/display window through your existing meeting app.
 
-### Access protection
-
-- Anonymous users can read `/api/auction`; all writes require an operator session.
-- The operator password is verified on the server. The browser receives a signed, 12-hour HttpOnly session cookie with SameSite=Strict and Secure on production HTTPS.
-- Writes and sign-in check the request origin. Request size, state shape, and expected version are validated; conflicting updates return the latest state rather than silently overwriting another operator.
-- Removing `/watch`, restoring hidden controls, or sending an anonymous POST does not grant permission. The viewer UI also guards mutation handlers and keyboard shortcuts.
-- Spectators poll every two seconds and see a connection notice if updates fail. They never write the operator's browser storage.
+No `DATABASE_URL`, `AUCTION_ADMIN_PASSWORD`, migration command, or API connection is required. The previous database/API implementation has been removed. An old Vercel password environment variable is unused and can be left in place or removed without affecting this version.
 
 ## Architecture
 
-The interface is a static frontend. The browser runs auction interactions, rendering, audio, and result animations. Vercel Node.js functions enforce operator authentication and persist shared state to Postgres through Drizzle and the Neon HTTP driver.
+This version is a static HTML/JavaScript app with locally compiled Tailwind CSS. All auction state, editing access, rendering, and animations run in the browser. Node.js is used only for building, previewing, screenshots, and tests.
 
 ```mermaid
 flowchart TD
-    Operator[Operator: buttons and keyboard] --> Actions[Action handlers]
+    Visitor[Visitor] --> Viewing[View-only interface]
+    Password[Enter GTS 26] --> Unlock[Client-side editing lock]
+    Unlock --> Session[(Tab sessionStorage)]
+    Unlock --> Actions[Auction editing controls]
     Actions --> Rules[Budget, reserve and squad checks]
-    Rules --> State[Shared auction state S]
-    State --> Render[Render stage, teams, squads and players]
-    Render --> Browser[Responsive browser UI]
-    State --> Save[save]
+    Rules --> State[Auction state S]
+    State --> Render[Stage, teams, squads and player views]
+    State --> Save[Save auction]
     Save --> Local[(Browser localStorage)]
-    Local --> OtherTabs[Same-origin display tabs]
-    OtherTabs --> State
-    Save --> API[Protected Vercel API]
-    Session[Operator session cookie] --> API
-    API --> Remote[(Postgres auction state)]
-    Viewer[Spectator browser] -->|Read every two seconds| API
-    API --> Apply[applyRemote and migration]
-    Apply --> State
+    Local --> Event[Storage event in other same-origin tabs]
+    Event --> Viewing
+    Viewing --> Render
 ```
 
 ### State and persistence
 
-The state includes auction configuration, teams, player records, current player and bid history, sale order, the latest result event, and the selected view. Team and player IDs connect rosters, budgets, and sale history.
-
-- **Browser storage:** operator `save()` stores a local copy under `gts-auction-v3` before publishing. Local preview uses this storage without cross-device sync. Spectators do not write it.
-- **Existing auctions:** a versioned migration updates the old eight-slot default to eleven and replaces the known legacy team labels. It preserves player records, current bids, sales, and custom team names.
-- **Optional host sync:** when the embedding host provides `window.claude.use('db')` and a user adapter, the app reads/writes the `json` field of `auction/state` and listens for snapshots. Host edit permissions determine whether the interface displays editing controls.
-- **Vercel live backend:** `assets/live.js` connects to `/api/session` and `/api/auction`. The server stores one versioned auction snapshot in `gts_auction_state`; spectators receive the public state through polling. Database credentials and the operator password are server-only.
-- **Static-only hosting:** without server functions and a database, the app can provide only a device-local preview. Public editing remains disabled on non-local hosts if the API is unavailable.
+- **Auction data:** configuration, teams, players, current bid and history, sales, result events, and view are retained in `gts-auction-v3`. Unlocking or locking editing does not clear these records.
+- **Editing access:** only a `yes` flag is stored under `gts-editing-unlocked-v1` in session storage. The password entered into the form is cleared after use.
+- **Existing auctions:** migrations retain players and auction progress while correcting the league title, 11-slot default, team labels, and Team C's owner names.
+- **Viewer controls:** bidding/editing controls are hidden, mutation handlers and shortcuts are guarded, and viewer navigation does not save preferences into the auction state. These are UI safeguards, not a server security boundary.
 
 ### Player flow
 
@@ -175,25 +161,24 @@ flowchart LR
 
 ```text
 .
-├── index.html                       # Canonical UI and inline auction JavaScript
-├── GTS Cricket League Season 2.html # Synchronized alternative filename
-├── src/styles.css                   # Tailwind theme and shared components
-├── assets/
-│   ├── styles.css                   # Generated stylesheet, committed for static use
-│   └── globe-teleservices-logo.jpg   # Bundled header logo
-├── assets/live.js                   # Session, publishing, polling and sharing client
-├── api/                             # Vercel API entry points
-├── server/                          # Authentication, validation, Drizzle schema/store
-├── migrations/0001_live_auction.sql  # Shared state schema, applied separately
-├── scripts/
-│   ├── build.mjs                    # Compile CSS, synchronize HTML, prepare dist
-│   ├── serve.mjs                    # Local preview server
-│   └── screenshots.mjs              # Reproduce README screenshots
-├── tests/ui.test.mjs                 # Playwright browser regression checks
-├── docs/images/                      # Committed UI screenshots
-├── vercel.json                       # Build output and routing configuration
-├── package.json
-└── package-lock.json
+|-- index.html                       # Canonical UI and inline auction JavaScript
+|-- GTS Cricket League Season 2.html # Synchronized alternative filename
+|-- src/styles.css                   # Tailwind theme and shared components
+|-- assets/
+|   |-- access.js                    # GTS 26 editing lock and viewing link
+|   |-- styles.css                   # Generated stylesheet
+|   `-- globe-teleservices-logo.jpg  # Bundled header logo
+|-- scripts/
+|   |-- build.mjs                    # Compile CSS, synchronize HTML, prepare dist
+|   |-- serve.mjs                    # Static preview server
+|   `-- screenshots.mjs              # Reproduce README screenshots
+|-- tests/
+|   |-- access.test.mjs              # Editing lock and same-browser viewing
+|   `-- ui.test.mjs                  # Responsive auction regression checks
+|-- docs/images/                     # Committed UI screenshots
+|-- vercel.json                      # Static build and auth/watch routes
+|-- package.json
+`-- package-lock.json
 ```
 
 `dist/`, `node_modules/`, and `test-results/` are generated and ignored by Git.
@@ -220,7 +205,7 @@ The suite uses installed Chrome/Edge on Windows, `CHROME_PATH` if supplied, or P
 npx playwright install chromium
 ```
 
-Checks cover all five views across phone, tablet, desktop, and landscape sizes; text reflow; long names; larger text; bid/undo/sold/unsold flows; 11-player squads; existing-state migration; result dialogs; presentation/display modes; and the enlarged leading-team panel. API tests verify anonymous-write denial, cookie forgery, origin checks, version conflicts, and fail-closed configuration. A separate-browser test verifies operator bids reaching a spectator with independent storage. These API integration tests use an isolated in-memory store; they do not exercise a production Postgres connection or change a live auction database. External font requests are blocked to verify fallback fonts. Test screenshots go to `test-results/`.
+Checks cover all five views across phone, tablet, desktop, and landscape sizes; text reflow; long names; larger text; bid/undo/sold/unsold flows; 11-player squads; saved-state corrections; result dialogs; presentation/display modes; and the enlarged leading team. Access checks cover default viewing, rejected passwords, GTS 26 unlocking, refresh/locking behavior, data preservation, draw cancellation when locking, same-browser display updates, and the absence of API/database requests. Tests use isolated browser storage and block external font requests to verify fallback fonts. Screenshots go to `test-results/`.
 
 ### Refresh the README images
 
@@ -233,7 +218,7 @@ The screenshot script starts a temporary server and browser profile, stages Nile
 
 ## Deployment
 
-The Vercel configuration runs **`npm run build`**, serves **`dist/`**, and routes `/auth` and `/watch` to the app while preserving the API function paths. Configure live hosting before sharing the spectator link. Uploading only `dist/` to a static host does not provide authentication or shared live state.
+The Vercel configuration runs **`npm run build`**, serves **`dist/`**, and maps `/auth` and `/watch` to the same static app. Deploy the repository to the existing project; no database or environment variables are needed. Other static hosts can serve `dist/` if they map these two paths to `index.html`.
 
 ## Branding
 

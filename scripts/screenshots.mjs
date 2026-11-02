@@ -16,6 +16,9 @@ try {
   const page = await context.newPage();
   await page.route('https://fonts.googleapis.com/**', route => route.abort());
   await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await page.locator('#bAccess').click();
+  await page.locator('#operator-password').fill('GTS 26');
+  await page.locator('#login-form button').click();
   await page.evaluate(() => {
     mute = true;
     const player = S.players.find(p => p.name === 'Nilesh Shinde');
