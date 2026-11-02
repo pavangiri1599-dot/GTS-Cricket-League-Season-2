@@ -14,8 +14,13 @@
 <body data-v="auction" class="min-h-dvh bg-bg font-sans text-base font-semibold leading-normal text-ink antialiased">
     <div class="app mx-auto flex min-h-dvh w-full max-w-[1920px] flex-col gap-4 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:gap-5" id="app">
         <header class="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-3">
-            <h1 class="min-w-0 break-words bg-linear-to-r from-gold to-gold-end bg-clip-text text-[clamp(1.75rem,3.2vw,3rem)] leading-tight text-transparent font-display font-normal tracking-wide" id="ttl"></h1>
-            <div class="live flex items-center gap-2 text-xs font-bold tracking-widest text-rose-300 sm:text-sm"><i></i>LIVE</div>
+            <div class="flex w-full min-w-0 items-center gap-3 sm:flex-1 sm:gap-4" id="brand">
+                <img src="./assets/globe-teleservices-logo.jpg" alt="Globe Teleservices" width="400" height="200" class="h-auto w-28 max-w-[34%] shrink-0 rounded-xl border border-white/20 bg-white object-contain sm:w-40 lg:w-44" id="brand-logo" fetchpriority="high">
+                <div class="flex min-w-0 flex-1 flex-col gap-1">
+                    <h1 class="min-w-0 bg-linear-to-r from-gold to-gold-end bg-clip-text font-display text-[clamp(1.35rem,2.8vw,2.75rem)] font-normal leading-tight tracking-wide text-transparent [overflow-wrap:anywhere]" id="ttl"></h1>
+                    <div class="live flex items-center gap-2 text-xs font-bold tracking-widest text-rose-300 sm:text-sm"><i></i>LIVE</div>
+                </div>
+            </div>
             <nav id="nav" aria-label="Main navigation" class="flex w-full flex-wrap gap-2 lg:ml-auto lg:w-auto"><button data-v="auction">Auction</button><button data-v="squads">Squads</button><button
                     data-v="unsold">Unsold</button><button data-v="players">Players</button><button
                     data-v="setup">Setup</button></nav>
@@ -25,12 +30,11 @@
             <div class="stage relative flex min-h-[340px] min-w-0 items-center justify-center rounded-3xl border-2 px-4 py-8 text-center sm:min-h-[420px] sm:px-8" id="stage">
                 <div id="idle" class="w-full min-w-0"></div>
                 <div id="live" class="w-full min-w-0" hidden><span class="inline-block max-w-full rounded-full border border-current px-4 py-1.5 text-sm font-bold tracking-widest sm:text-base" id="cat"></span>
-                    <div class="my-4 break-words text-[clamp(2.5rem,6vw,6rem)] leading-[1.12] [overflow-wrap:anywhere] font-display font-normal tracking-wide" id="pname"></div>
+                    <div class="my-4 break-words text-[clamp(2.5rem,6vw,6rem)] leading-[1.25] [overflow-wrap:anywhere] font-display font-normal tracking-wide" id="pname"></div>
                     <div class="text-base text-muted sm:text-xl" id="base"></div>
                     <div class="mt-5 text-xs font-bold tracking-[.2em] text-muted sm:text-sm" id="lbl"></div>
-                    <div class="py-2 text-[clamp(3rem,8vw,8rem)] leading-[1.1] tabular-nums text-gold font-display font-normal tracking-wide" id="bid"></div>
-                    <div class="mt-2 text-lg leading-relaxed sm:text-2xl" id="lead"></div>
-                    <div class="mt-5 flex flex-wrap justify-center gap-2 text-sm text-muted" id="hist"></div>
+                    <div class="py-2 text-[clamp(3rem,8vw,8rem)] leading-[1.1] tabular-nums text-gold font-display font-normal tracking-wide [overflow-wrap:anywhere]" id="bid"></div>
+                    <div class="mt-5 min-w-0" id="lead" role="status" aria-live="polite" aria-atomic="true"></div>
                 </div>
             </div>
             <div class="flex min-w-0 flex-wrap items-center gap-2 xl:col-start-1 xl:row-start-3" id="ctl" aria-label="Auction controls">
@@ -61,6 +65,7 @@
     <div id="ov" hidden class="fixed inset-0 z-50 overflow-y-auto p-4" role="dialog" aria-modal="true" aria-labelledby="result-title"></div><canvas id="cf" class="pointer-events-none fixed inset-0 z-40 h-full w-full" aria-hidden="true"></canvas>
     <script>
         const $ = s => document.querySelector(s), K = 'gts-auction-v3', DISP = location.hash === '#display';
+        const LEAGUE_TITLE = 'GTS Cricket League Season 2';
         const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         const fmt = n => '₹' + Number(n).toLocaleString('en-IN');
         const CATS = { 'Icon': ['⭐', '#ffc83d', 40000], 'Owner': ['👑', '#ff4d6d', 30000], 'All Rounder': ['⚡', '#ff9a1f', 20000], 'Batsman': ['🏏', '#4da3ff', 15000], 'Bowler': ['🎯', '#3ee08a', 10000], 'Female Player': ['💫', '#ff7ad9', 2000], 'New Player': ['🌱', '#9aa7c7', 5000] };
@@ -78,7 +83,9 @@
         const teamLabel = t => t.name + (t.owner ? ' (' + t.owner + ')' : '');
         const teamHeading = t => `${esc(t.name)}${t.owner ? ` <small class="mt-1 block font-sans text-sm font-semibold leading-snug tracking-normal">(${esc(t.owner)})</small>` : ''}`;
         function migrateTeamSetup(state) {
-            if (state.teamSetupVersion >= 1) return false;
+            let changed = false;
+            if (/^gts\s+premier\s+league$/i.test((state.cfg.title || '').trim())) { state.cfg.title = LEAGUE_TITLE; changed = true; }
+            if (state.teamSetupVersion >= 1) return changed;
             if (state.cfg.squad === 8) state.cfg.squad = 11;
             state.teams.forEach(t => {
                 const defaults = TEAM_DEFAULTS[t.id];
@@ -90,7 +97,7 @@
         const P0 = ("Suraj Panchal,Icon,40000,1,40000;Vishal Tiwari,Icon,40000,2,40000;Mandar Ghugare,Icon,40000,3,40000;Nishant Patil,Icon,40000,4,40000;Sanil Gaikwad,Icon,40000,5,40000;Pavan Giri,Icon,40000,6,40000;Tejas Sawant,Owner,30000,1,30000;Rohit Singh,Owner,30000,1,30000;Nahas Khalid,Owner,30000,3,30000;Rakshit Deshmukh,Owner,30000,4,30000;Pallavi Kudtarkar,Female Owner,15000,4,15000;Nevedita Kale,Female;Kalyani Dhoke,Female;Aditi Dalvi,Female;Priya Chaudhary,Female;Simran Datkhile,Female;Rupesh Gawli,AR;Viral Bhatt,AR;Prashant Shinde,AR;Pravin Kore,AR;Larry D'Cruz,Bat;Rohan Bhanushali,Bat;Kunal Tawate,Bat;Sanjay Gupta,Bat;Sandeep Santhanam,Bat;Gunaseelan V,Bat;Nilesh Shinde,Bat;Pronnoy Choudhury,Bat;Deepak Hirawat,Bat;Pavan Mokashi,Bat;Tushar Gaikwad,Bat;Pushkar Pillewar,Bat;Suraj Nishad,Bat;Omkar Madhvi,Bat;Sonu Thakur,Bat;Yashraj Salian,Bowl;Rahul Patil,Bowl;Mandar Jawalkar,Bowl;Sunny Mishra,Bowl;Viraj Raorane,Bowl;Om Patel,Bowl;Sarvar Nivsekar,Bowl;Aman Bajaj,Bowl;Sunny Kumar,Bowl;Kunal Mittal,New;Prashant Kasbe,New;Anshuman Mukherjee,New;Nilesh Upsham,New").split(';').join('\n');
         let S, seen = 0, reeling = false, mute = false, AC, ovT, shown = 0, DB = null, RO = false, DBOK = false, lastJ = '', wBusy = false, wPend = false, LV = null, first = true;
         function build(cfg, tt, pt) { S = { cfg, teams: tt.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 8).map((l, i) => { const [a, b, c] = l.split(',').map(x => x.trim()); return { id: i, name: a, owner: b || '', color: /^#[0-9a-f]{6}$/i.test(c || '') ? c : PAL[i] } }), players: pt.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const [a, b, c, d, e] = l.split(',').map(x => x.trim()); const cat = norm(b), tm = parseInt(d) - 1, fx = tm >= 0 && tm < 8, bp = +c || CATS[cat][2]; return { id: i, name: a, cat, base: bp, team: fx ? tm : -1, price: fx ? (+e || bp) : 0, st: fx ? 's' : 'p', f: /fem|wom/i.test(b || '') } }), cur: null, sales: [], ev: null, view: 'auction', filt: '', rv: 2, teamSetupVersion: 1 } }
-        function reset() { build({ title: 'GTS PREMIER LEAGUE', purse: 200000, squad: 11, inc: 1000, reserve: 2000 }, T0, P0) }
+        function reset() { build({ title: LEAGUE_TITLE, purse: 200000, squad: 11, inc: 1000, reserve: 2000 }, T0, P0) }
         try { S = JSON.parse(localStorage.getItem(K)); if (!S || !S.teams) S = null } catch (e) { S = null }
         if (!S) reset();
         const teamSetupChanged = migrateTeamSetup(S);
@@ -118,7 +125,7 @@
         function setBid(to) { const el = $('#bid'); if (shown === to && el.textContent) return; if (matchMedia('(prefers-reduced-motion: reduce)').matches) { shown = to; el.textContent = fmt(to); return } const from = shown, t0 = performance.now(); shown = to; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); (function f(t) { const k = Math.min(1, (t - t0) / 450); el.textContent = fmt(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(f) })(t0) }
         function renderStage() {
             const c = S.cur, st = $('#stage'); $('#idle').hidden = !!c || reeling; $('#live').hidden = !(c || reeling);
-            if (reeling) { st.style.setProperty('--c', '#8a94b8'); $('#base').textContent = ''; $('#lbl').textContent = 'DRAWING…'; $('#bid').textContent = ''; $('#lead').innerHTML = ''; $('#hist').innerHTML = ''; shown = 0; return }
+            if (reeling) { st.style.setProperty('--c', '#8a94b8'); $('#base').textContent = ''; $('#lbl').textContent = 'DRAWING…'; $('#bid').textContent = ''; $('#lead').innerHTML = ''; shown = 0; return }
             if (!c) {
                 const left = S.players.filter(p => p.st === 'p' && p.cat !== 'Icon' && p.cat !== 'Owner').length, u = S.players.filter(p => p.st === 'u').length, sl = S.players.filter(p => p.st === 's'); st.style.setProperty('--c', '#ffc83d'); shown = 0;
                 $('#idle').innerHTML = left ? `<div class="text-[clamp(2.5rem,5vw,5.5rem)] leading-tight font-display font-normal tracking-wide">Next player, please</div><p class="mt-3 text-base text-muted sm:text-xl">${left} in the pool · press N to draw</p>` : u ? `<div class="text-[clamp(2.5rem,5vw,5.5rem)] leading-tight font-display font-normal tracking-wide">${u} unsold</div><p>Main auction done · press N for the accelerated round (teams with purse first), or random-draw from the Unsold tab</p>` : `<div class="text-[clamp(2.5rem,5vw,5.5rem)] leading-tight font-display font-normal tracking-wide">Auction complete 🏆</div><p class="mt-3 text-base text-muted sm:text-xl">${sl.length} players sold · ${fmt(sl.reduce((a, p) => a + p.price, 0))} spent in total</p>`; return
@@ -126,8 +133,11 @@
             const p = pl(c.pid), k = CATS[p.cat], t = c.lead !== null ? S.teams[c.lead] : null;
             st.style.setProperty('--c', t ? t.color : k[1]); $('#cat').textContent = k[0] + ' ' + p.cat.toUpperCase(); $('#cat').style.color = k[1];
             $('#pname').textContent = p.name; $('#base').textContent = 'Base price ' + fmt(p.base); $('#lbl').textContent = t ? 'CURRENT BID' : 'OPENING PRICE'; setBid(c.bid);
-            $('#lead').innerHTML = t ? `<b class="inline-block max-w-full break-words rounded-xl bg-[var(--c)] px-4 py-2 text-bg">${teamHeading(t)}</b>` : '<span class="text-muted">Waiting for the first bid…</span>';
-            $('#hist').innerHTML = c.hist.slice(0, 5).map(h => `<span style="--c:${S.teams[h[0]].color}">${esc(teamLabel(S.teams[h[0]]))} ${fmt(h[1])}</span>`).join('')
+            $('#lead').innerHTML = t ? `<div class="leading-team mx-auto w-full max-w-2xl rounded-2xl border-2 px-4 py-4 [overflow-wrap:anywhere] sm:px-6 sm:py-5">
+                <div class="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-muted"><span class="h-2 w-2 shrink-0 rounded-full bg-[var(--c)]" aria-hidden="true"></span>Currently leading</div>
+                <div class="mt-2 min-w-0 font-display text-[clamp(2.25rem,5vw,5rem)] font-normal leading-[1.25] tracking-wide text-[var(--c)]" data-leading-team>${esc(t.name)}</div>
+                ${t.owner ? `<div class="mt-2 text-base leading-snug text-ink sm:text-xl" data-leading-owners>(${esc(t.owner)})</div>` : ''}
+            </div>` : '<span class="text-muted">Waiting for the first bid…</span>';
         }
         function render(skip) {
             const v = DISP ? (S.view === 'setup' || S.view === 'players' ? 'auction' : S.view) : RO ? (LV || 'auction') : S.view; document.body.dataset.v = v;
@@ -190,7 +200,7 @@
 <div class="flex min-w-0 flex-col gap-4 rounded-2xl border border-line bg-panel p-4 sm:p-6"><label>Players: name, category, base price, then team no. and fixed price for pre-signed icons/owners (one per line)<textarea id="sPl" rows="26">${esc(S.players.map(p => { const f = p.team >= 0 && !S.sales.includes(p.id); return [p.name, p.f && p.cat === 'Owner' ? 'Female Owner' : p.cat, p.base, f ? p.team + 1 : '', f ? p.price : ''].join(', ') }).join('\n'))}</textarea></label></div></div>`;
             let armed = 0; $('#sA').onclick = e => {
                 if (!armed) { armed = 1; e.target.textContent = 'Click again to wipe all bids and apply'; setTimeout(() => { armed = 0; e.target.textContent = 'Apply and reset auction' }, 3500); return }
-                build({ title: $('#sT').value || 'AUCTION', purse: +$('#sP').value || 200000, squad: +$('#sS').value || 11, inc: +$('#sI').value || 1000, reserve: +$('#sR').value || 0 }, $('#sTe').value, $('#sPl').value); save(); go('auction')
+                build({ title: $('#sT').value || LEAGUE_TITLE, purse: +$('#sP').value || 200000, squad: +$('#sS').value || 11, inc: +$('#sI').value || 1000, reserve: +$('#sR').value || 0 }, $('#sTe').value, $('#sPl').value); save(); go('auction')
             };
             $('#sC').onclick = () => { const rows = ['Team,Player,Category,Price'].concat(S.players.filter(p => p.st === 's').map(p => [S.teams[p.team].name, p.name, p.cat, p.price].join(','))); $('#sM').innerHTML = '<textarea readonly rows="8" class="w-full">' + esc(rows.join('\n')) + '</textarea>' }
         }

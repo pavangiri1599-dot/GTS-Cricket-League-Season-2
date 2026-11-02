@@ -33,8 +33,13 @@ async function open(viewport = { width: 375, height: 812 }, options = {}) {
 async function checkLayout(page, label) {
   const issues = await page.evaluate(() => {
     const issues = [];
-    if (document.documentElement.scrollWidth > innerWidth + 1) issues.push(`page overflows ${document.documentElement.scrollWidth}/${innerWidth}`);
-    for (const el of document.querySelectorAll('#pname, .sl b, h3, [data-player-name], #teams b, #bids b, [data-result-card]')) {
+    if (document.documentElement.scrollWidth > innerWidth + 1) {
+      issues.push(`page overflows ${document.documentElement.scrollWidth}/${innerWidth}`);
+      for (const el of document.querySelectorAll('#stage *, #bids *, #teams *')) {
+        if (el.checkVisibility() && el.scrollWidth > el.clientWidth + 2) issues.push(`overflow source: ${el.id || el.tagName} ${el.textContent.slice(0, 100)}`);
+      }
+    }
+    for (const el of document.querySelectorAll('#ttl, #brand-logo, #pname, .sl b, h3, [data-player-name], #teams b, #bids b, [data-leading-team], [data-leading-owners], [data-result-card]')) {
       if (!el.checkVisibility()) continue;
       const rect = el.getBoundingClientRect();
       if (rect.left < -1 || rect.right > innerWidth + 1) issues.push(`outside viewport: ${el.textContent}; parent=${el.parentElement.id || el.parentElement.className}; bounds=${rect.left},${rect.right}`);
@@ -274,5 +279,72 @@ test('Dhurandhar sale announcement names the player, winning team, owners and pr
     await checkLayout(page, `professional sale result at ${width}`);
     await page.screenshot({ path: `test-results/dhurandhar-sold-${width}.png` });
   }
+  await context.close();
+});
+
+test('the current leading team is prominent and changes on bids and undo without a history strip', async () => {
+  const { context, page } = await open();
+  await page.evaluate(() => {
+    mute = true;
+    const player = S.players.find(p => p.name === 'Nilesh Shinde');
+    S.cur = { pid: player.id, bid: player.base, lead: null, hist: [] };
+    render();
+  });
+  assert.match(await page.locator('#lead').textContent(), /Waiting for the first bid/);
+  await page.locator('#bids [data-i="3"]').click();
+  assert.equal(await page.locator('[data-leading-team]').textContent(), 'Team D');
+  assert.equal(await page.locator('[data-leading-owners]').textContent(), '(Rakshit & Pallavi)');
+  await page.locator('#bids [data-i="5"]').click();
+  assert.equal(await page.locator('[data-leading-team]').textContent(), 'Dhurandhar');
+  await page.locator('#bUb').click();
+  assert.equal(await page.locator('[data-leading-team]').textContent(), 'Team D');
+  assert.equal(await page.locator('#hist').count(), 0);
+  assert.equal(await page.evaluate(() => S.cur.hist.length), 1, 'bid history remains available for undo');
+  for (const [width, height] of [[320, 740], [375, 812], [768, 1024], [1440, 900], [844, 390]]) {
+    await page.setViewportSize({ width, height });
+    const size = await page.locator('[data-leading-team]').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+    assert.ok(size >= 36, 'leading team should use a large display font');
+    await checkLayout(page, `large leading team at ${width}`);
+  }
+  await page.evaluate(() => {
+    S.teams[3].name = 'LongUnbrokenLeadingTeamName'.repeat(3);
+    S.teams[3].owner = 'An owner with a much longer name and another owner';
+    document.documentElement.style.fontSize = '200%';
+    render();
+  });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await checkLayout(page, 'enlarged text and a long leading team');
+  await page.locator('#bUb').click();
+  assert.match(await page.locator('#lead').textContent(), /Waiting for the first bid/);
+  await context.close();
+});
+
+test('the header logo loads locally and the new league title upgrades saved and synced auctions', async () => {
+  const { context, page } = await open();
+  const title = 'GTS Cricket League Season 2';
+  assert.equal(await page.locator('#ttl').textContent(), title);
+  await page.locator('#brand-logo').evaluate(img => img.decode());
+  const image = await page.locator('#brand-logo').evaluate(img => ({ loaded: img.complete && img.naturalWidth > 0, ratio: img.getBoundingClientRect().width / img.getBoundingClientRect().height }));
+  assert.equal(image.loaded, true);
+  assert.ok(Math.abs(image.ratio - 2) < .05, 'logo proportions should be preserved');
+  const response = await page.request.get(base + '/assets/globe-teleservices-logo.jpg');
+  assert.equal(response.status(), 200);
+  assert.match(response.headers()['content-type'], /image\/jpeg/);
+  assert.deepEqual(await readFile('assets/globe-teleservices-logo.jpg'), await readFile('dist/assets/globe-teleservices-logo.jpg'));
+  const before = await page.evaluate(() => {
+    S.cfg.title = 'GTS PREMIER LEAGUE';
+    S.cur = { pid: 11, bid: 3000, lead: 5, hist: [[5, 3000]] };
+    localStorage.setItem(K, JSON.stringify(S));
+    return structuredClone(S);
+  });
+  await page.reload();
+  assert.equal(await page.locator('#ttl').textContent(), title);
+  assert.deepEqual(await page.evaluate(() => S.players), before.players);
+  assert.deepEqual(await page.evaluate(() => S.cur), before.cur);
+  assert.deepEqual(await page.evaluate(() => S.sales), before.sales);
+  await page.evaluate(state => applyRemote(JSON.stringify({ ...state, v: 100 })), before);
+  assert.equal(await page.locator('#ttl').textContent(), title);
+  await page.locator('nav [data-v="setup"]').click();
+  assert.equal(await page.locator('#sT').inputValue(), title);
   await context.close();
 });

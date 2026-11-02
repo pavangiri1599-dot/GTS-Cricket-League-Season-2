@@ -45,6 +45,11 @@
     background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--c, #ffc83d) 16%, #0b1124), #0b1124 75%);
     border-color: color-mix(in srgb, var(--c, #ffc83d) 45%, #ffffff1a);
   }
+  .leading-team {
+    border-color: color-mix(in srgb, var(--c) 65%, transparent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--c) 16%, #0b1124), #0b1124);
+    box-shadow: 0 8px 40px -14px color-mix(in srgb, var(--c) 45%, transparent);
+  }
   .sl { @apply grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-xl bg-white/5 p-3; }
   .sl.e { @apply flex min-h-12 items-center justify-center border border-dashed border-line bg-transparent text-sm text-muted; }
   .sl .x { @apply col-start-2 row-span-3 row-start-1 min-h-11 min-w-11 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 text-sm font-bold text-rose-200 hover:bg-rose-500/25; }

@@ -10,7 +10,7 @@ export function serve(port = 4173) {
       const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
       if (!file.startsWith(root + sep)) { res.writeHead(403).end(); return; }
       const data = await readFile(file);
-      res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript' })[extname(file)] || 'application/octet-stream' });
+      res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.jpg': 'image/jpeg', '.png': 'image/png' })[extname(file)] || 'application/octet-stream' });
       res.end(data);
     } catch { res.writeHead(404).end('Not found'); }
   });
