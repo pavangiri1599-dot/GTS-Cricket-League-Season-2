@@ -24,7 +24,7 @@ try {
     const player = S.players.find(p => p.name === 'Nilesh Shinde');
     S.cur = { pid: player.id, bid: player.base, lead: null, hist: [] };
     render();
-    [4, 2, 4, 3, 2, 4, 3].forEach(bid);
+    [...Array.from({ length: 16 }, (_, i) => i % 2 ? 2 : 4), 3].forEach(bid);
   });
   await mkdir('docs/images', { recursive: true });
   await page.screenshot({ path: 'docs/images/auction-desktop.png', fullPage: true });

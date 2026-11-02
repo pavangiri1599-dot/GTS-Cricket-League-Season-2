@@ -54,6 +54,26 @@ The app stores auction progress in this browser. It needs no `.env` file or serv
 
 The generated stylesheet is committed in `assets/styles.css`, so the HTML can also be served by a basic static server. Styling does not depend on a Tailwind CDN. The existing Google Fonts link loads Bebas Neue and Rajdhani when available, with local font fallbacks.
 
+## Registered player data
+
+The app includes **50 registered players** from `Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx`, sheet **Registered Player Data**, cells **A3:D52**. Names, registration numbers (including blanks), gender, and the original player role are retained. Amit Nagarkoti is included as **Male / New Player**, as confirmed by the user.
+
+The player editor shows the original registered role and gender beneath each name. Auction categories map **Batter** to **Batsman**, female all-rounders to **Female Player**, and **All Rounder/Owner** to **Owner**, while retaining the original role text. Base prices come from the workbook's Player Prices and owner/icon deduction cells.
+
+Existing saved lists update once for this registration revision. Matched players keep their IDs, team assignments, picked/sold prices, statuses, current bids, and sale history. New registrations start unassigned. The unused Kunal Mittal placeholder is removed because it is absent from the supplied list; if that player has auction activity, the record is retained and labeled as outside the current registration. A base-price correction for the player currently on stage takes effect after that auction finishes. Later manual edits are preserved on refresh.
+
+Your **11-slot** setting remains in place; the workbook's older eight-player squad guidance does not override it. Existing fixed/picked prices are retained, so importing registration details does not change team spending.
+
+To refresh from a revised workbook, review any missing fields, then run the read-only importer (Python with `openpyxl`), build and test before deploying:
+
+```bash
+python scripts/import_registered_players.py "PATH/TO/WORKBOOK.xlsx"
+npm run build
+npm test
+```
+
+The importer updates `assets/registered-players.js`; it does not modify the Excel workbook. `assets/registration.js` applies the data to the app and migrates saved auction lists.
+
 ## Running an auction
 
 1. Open **Setup** to review team names, owners, purse, squad size, bid increment, reserve, and the player list. Applying setup resets the auction and requires a second click on its reset button.
@@ -166,10 +186,13 @@ flowchart LR
 |-- src/styles.css                   # Tailwind theme and shared components
 |-- assets/
 |   |-- access.js                    # GTS 26 editing lock and viewing link
+|   |-- registered-players.js        # Data extracted from the registration workbook
+|   |-- registration.js              # Registration metadata and saved-list migration
 |   |-- styles.css                   # Generated stylesheet
 |   `-- globe-teleservices-logo.jpg  # Bundled header logo
 |-- scripts/
 |   |-- build.mjs                    # Compile CSS, synchronize HTML, prepare dist
+|   |-- import_registered_players.py # Read registration workbook into the data asset
 |   |-- serve.mjs                    # Static preview server
 |   `-- screenshots.mjs              # Reproduce README screenshots
 |-- tests/
