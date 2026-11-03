@@ -330,6 +330,38 @@ test('the current leading team is prominent and changes on bids and undo without
   await context.close();
 });
 
+test('SOLD speaks once with the final amount, respects mute during results, and stops on undo', async () => {
+  const { context, page, errors } = await open();
+  await page.evaluate(() => {
+    window.spokenSales = []; window.speechStops = 0;
+    window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+    speechSynthesis.getVoices = () => [{ name: 'Test local voice', lang: 'en-IN', localService: true }];
+    speechSynthesis.speak = utterance => window.spokenSales.push(utterance.text);
+    speechSynthesis.cancel = () => window.speechStops++;
+    const p = S.players.find(p => p.name === 'Shubham Desai');
+    S.cur = { pid: p.id, bid: 21000, lead: 5, hist: [[5, 21000]] };
+    render();
+  });
+  await page.locator('#bSold').click();
+  assert.deepEqual(await page.evaluate(() => window.spokenSales), ['Shubham Desai sold to Dhurandhar for twenty one thousand rupees.']);
+  await page.evaluate(() => { render(); render(); });
+  assert.equal(await page.evaluate(() => window.spokenSales.length), 1, 'rendering the result again must not repeat narration');
+  const beforeMute = await page.evaluate(() => window.speechStops);
+  await page.keyboard.press('m');
+  assert.equal(await page.evaluate(() => mute), true);
+  assert.ok(await page.evaluate(before => window.speechStops > before, beforeMute), 'mute must interrupt speech while the dialog is open');
+  await page.locator('[data-close-result]').click();
+  const beforeUndo = await page.evaluate(() => window.speechStops);
+  await page.locator('#bUs').click();
+  assert.ok(await page.evaluate(before => window.speechStops > before, beforeUndo));
+  await page.locator('#bSold').click();
+  assert.equal(await page.evaluate(() => window.spokenSales.length), 1, 'a muted sale must not speak');
+  await page.reload();
+  assert.equal(await page.locator('[data-result-card]').count(), 0, 'refresh must not replay a sale');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 test('the header logo loads locally and the new league title upgrades saved and shared-browser auctions', async () => {
   const { context, page } = await open();
   const title = 'GTS Cricket League Season 2';
