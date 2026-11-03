@@ -56,7 +56,7 @@ The generated stylesheet is committed in `assets/styles.css`, so the HTML can al
 
 ## Registered player data
 
-The app includes **50 registered players** from `Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx`, sheet **Registered Player Data**, cells **A3:D52**. Names, registration numbers (including blanks), gender, and the original player role are retained. Amit Nagarkoti is included as **Male / New Player**, as confirmed by the user.
+The app includes **52 registered players**: 50 from `Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx`, sheet **Registered Player Data**, cells **A3:D52**, plus two registrations confirmed by the user: **51 — Shubham Desai, Male / All Rounder (₹20,000)** and **52 — Vikas Tripathi, Male / Bowler (₹10,000)**. Names, registration numbers (including blanks), gender, and the original player role are retained. Amit Nagarkoti is included as **Male / New Player**, as confirmed by the user. The two additional registrations have no workbook source row; retain them when refreshing the workbook import.
 
 The player editor shows the original registered role and gender beneath each name. Auction categories map **Batter** to **Batsman**, female all-rounders to **Female Player**, and **All Rounder/Owner** to **Owner**, while retaining the original role text. Base prices come from the workbook's Player Prices and owner/icon deduction cells.
 

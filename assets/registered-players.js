@@ -1,6 +1,6 @@
-// Imported from the supplied workbook. Amit details were confirmed by the user.
+// Imported from the supplied workbook. Amit details and additional registrations were confirmed by the user.
 const REGISTERED_PLAYER_DATA = {
-  "revision": "e979f91f6c1565c1",
+  "revision": "2026-11-04-players-51-52",
   "source": {
     "file": "Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx",
     "sheet": "Registered Player Data",
@@ -457,6 +457,24 @@ const REGISTERED_PLAYER_DATA = {
       "category": "New Player",
       "base": 5000,
       "sourceRow": 52
+    },
+    {
+      "number": 51,
+      "name": "Shubham Desai",
+      "gender": "Male",
+      "role": "All Rounder",
+      "category": "All Rounder",
+      "base": 20000,
+      "sourceRow": null
+    },
+    {
+      "number": 52,
+      "name": "Vikas Tripathi",
+      "gender": "Male",
+      "role": "Bowler",
+      "category": "Bowler",
+      "base": 10000,
+      "sourceRow": null
     }
   ]
 };
