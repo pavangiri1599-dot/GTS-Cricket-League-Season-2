@@ -90,9 +90,9 @@ The initial teams are:
 
 - **Team A** (Tejas & Rohit)
 - **Team B** (Avneesh & Vinay)
-- **Team C** (Manmohan, Nahas & Priya Singh)
+- **YODDHAS** (Manmohan, Nahas & Priya Singh)
 - **Team D** (Rakshit & Pallavi)
-- **Team E** (Ashutosh & Alok)
+- **Ruffryderz** (Ashutosh & Alok)
 - **Dhurandhar** (Sudip & Kunal)
 
 Team names, owners, and colors can be edited in Setup. The setup parser supports up to eight teams; that team count is separate from the 11 slots per squad.

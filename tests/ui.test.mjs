@@ -191,7 +191,7 @@ test('both HTML entry points stay identical and use the compiled Tailwind asset'
 test('eleven-slot squads and team/owner headings appear across the interface', async () => {
   const { context, page } = await open();
   assert.equal(await page.evaluate(() => S.cfg.squad), 11);
-  const labels = ['Team A (Tejas & Rohit)', 'Team B (Avneesh & Vinay)', 'Team C (Manmohan, Nahas & Priya Singh)', 'Team D (Rakshit & Pallavi)', 'Team E (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
+  const labels = ['Team A (Tejas & Rohit)', 'Team B (Avneesh & Vinay)', 'YODDHAS (Manmohan, Nahas & Priya Singh)', 'Team D (Rakshit & Pallavi)', 'Ruffryderz (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
   assert.deepEqual(await page.locator('#bids b').allTextContents(), labels);
   assert.deepEqual(await page.locator('#teams b').allTextContents(), labels);
   await page.locator('nav [data-v="squads"]').click();
@@ -240,8 +240,14 @@ test('existing saved and shared-browser auctions gain new team labels and slots 
   assert.equal(await page.evaluate(() => S.teams[0].name), 'Custom Team');
   await page.evaluate(() => {
     S.teams[2].name = 'Team C'; S.teams[2].owner = 'Manmohan'; S.teamSetupVersion = 1;
-    migrateTeamSetup(S); render();
+    S.teams[4].name = 'Team E';
+    save();
   });
+  await page.reload();
+  assert.equal(await page.evaluate(() => S.teams[2].name), 'YODDHAS');
+  assert.equal(await page.evaluate(() => S.teams[4].name), 'Ruffryderz');
+  assert.deepEqual(await page.evaluate(() => S.players), legacy.players);
+  assert.deepEqual(await page.evaluate(() => S.cur), legacy.cur);
   assert.equal(await page.evaluate(() => S.teams[2].owner), 'Manmohan, Nahas & Priya Singh', 'already migrated auctions must repair the truncated owner label');
   assert.deepEqual(errors, []);
   await context.close();

@@ -93,9 +93,9 @@
         const TEAM_DEFAULTS = [
             { name: 'Team A', owner: 'Tejas & Rohit', legacy: ['Tejas & Rohit'] },
             { name: 'Team B', owner: 'Avneesh & Vinay', legacy: ['Avneesh & Vinay'] },
-            { name: 'Team C', owner: 'Manmohan, Nahas & Priya Singh', legacy: ['Manmohan', 'Manmohan / Nahas / Priya Singh'] },
+            { name: 'YODDHAS', owner: 'Manmohan, Nahas & Priya Singh', legacy: ['Team C', 'Manmohan', 'Manmohan / Nahas / Priya Singh'] },
             { name: 'Team D', owner: 'Rakshit & Pallavi', legacy: ['Rakshit & Pallavi'] },
-            { name: 'Team E', owner: 'Ashutosh & Alok', legacy: ['Ashutosh & Alok'] },
+            { name: 'Ruffryderz', owner: 'Ashutosh & Alok', legacy: ['Team E', 'Ashutosh & Alok'] },
             { name: 'Dhurandhar', owner: 'Sudip & Kunal', legacy: ['Sudip', 'Sudip & Kunal'] },
         ];
         const T0 = TEAM_DEFAULTS.map((t, i) => [t.name, t.owner, PAL[i]].join(',')).join('\n');
@@ -105,10 +105,16 @@
             let changed = false;
             if (/^gts\s+premier\s+league$/i.test((state.cfg.title || '').trim())) { state.cfg.title = LEAGUE_TITLE; changed = true; }
             const teamC = state.teams.find(t => t.id === 2);
-            if (teamC && ['Team C', ...TEAM_DEFAULTS[2].legacy].includes(teamC.name) && /^(manmohan|manmohan\s*\/\s*nahas\s*\/\s*priya singh)$/i.test((teamC.owner || '').trim())) {
+            if (teamC && [TEAM_DEFAULTS[2].name, ...TEAM_DEFAULTS[2].legacy].includes(teamC.name) && /^(manmohan|manmohan\s*\/\s*nahas\s*\/\s*priya singh)$/i.test((teamC.owner || '').trim())) {
                 teamC.owner = TEAM_DEFAULTS[2].owner; changed = true;
             }
-            if (state.teamSetupVersion >= 1) return changed;
+            if (state.teamSetupVersion >= 1) {
+                for (const id of [2, 4]) {
+                    const team = state.teams.find(t => t.id === id), defaults = TEAM_DEFAULTS[id];
+                    if (team && defaults.legacy.includes(team.name)) { team.name = defaults.name; changed = true; }
+                }
+                return changed;
+            }
             if (state.cfg.squad === 8) state.cfg.squad = 11;
             state.teams.forEach(t => {
                 const defaults = TEAM_DEFAULTS[t.id];
