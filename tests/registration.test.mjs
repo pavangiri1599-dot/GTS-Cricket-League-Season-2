@@ -25,12 +25,12 @@ async function open() {
   return { context, page, errors };
 }
 
-test('all fifty-two registrations and source fields load with the category prices', async () => {
+test('all fifty-three registrations and source fields load with the category prices', async () => {
   const { context, page, errors } = await open();
   const players = await page.evaluate(() => S.players);
-  assert.equal(imported.players.length, 52);
-  assert.equal(players.length, 52);
-  assert.equal(new Set(players.map(p => p.name)).size, 52);
+  assert.equal(imported.players.length, 53);
+  assert.equal(players.length, 53);
+  assert.equal(new Set(players.map(p => p.name)).size, 53);
   for (const record of imported.players) {
     const player = players.find(p => p.name === record.name);
     assert.ok(player, record.name);
@@ -53,15 +53,18 @@ test('all fifty-two registrations and source fields load with the category price
   assert.equal(players.find(p => p.name === 'Amit Nagarkoti').gender, 'Male');
   assert.equal(players.find(p => p.name === 'Amit Nagarkoti').cat, 'New Player');
   assert.equal(players.find(p => p.name === 'Amit Nagarkoti').base, 5000);
+  assert.equal(players.find(p => p.name === 'Yash Sonawane').gender, 'Male');
+  assert.equal(players.find(p => p.name === 'Yash Sonawane').cat, 'All Rounder');
+  assert.equal(players.find(p => p.name === 'Yash Sonawane').base, 20000);
   assert.equal(players.some(p => p.name === 'Kunal Mittal'), false);
   assert.equal(await page.evaluate(() => S.cfg.squad), 11);
   await page.locator('nav [data-v="players"]').click();
-  assert.equal(await page.locator('.player-row').count(), 52);
+  assert.equal(await page.locator('.player-row').count(), 53);
   assert.ok((await page.locator('.player-row').filter({ has: page.locator('[data-player-name]', { hasText: 'Khyati Modi' }) }).textContent()).includes('Female'));
   await page.locator('nav [data-v="setup"]').click();
   await page.evaluate(() => build({ ...S.cfg }, $('#sTe').value, $('#sPl').value));
   const roundTrip = await page.evaluate(() => S.players);
-  assert.equal(roundTrip.length, 52);
+  assert.equal(roundTrip.length, 53);
   assert.equal(roundTrip.find(p => p.name === 'Pallavi Kudtarkar').f, true);
   assert.equal(roundTrip.find(p => p.name === 'Amit Nagarkoti').registeredRole, 'New Player');
   assert.deepEqual(errors, []);
@@ -87,7 +90,7 @@ test('registration updates old saved pools while retaining stable IDs, bids, sol
   });
   await page.reload();
   const updated = await page.evaluate(() => S);
-  assert.equal(updated.players.length, 52);
+  assert.equal(updated.players.length, 53);
   assert.deepEqual(updated.cur, before.cur);
   assert.deepEqual(updated.sales, before.sales);
   for (const old of before.players.filter(p => p.name !== 'Kunal Mittal')) {
@@ -115,10 +118,10 @@ test('registration updates old saved pools while retaining stable IDs, bids, sol
   await context.close();
 });
 
-test('players 51 and 52 join an existing registered auction pool once without changing auction progress', async () => {
+test('players 51 through 53 join an existing registered auction pool once without changing auction progress', async () => {
   const { context, page, errors } = await open();
   const before = await page.evaluate(() => {
-    S.players = S.players.filter(p => !['Shubham Desai', 'Vikas Tripathi'].includes(p.name));
+    S.players = S.players.filter(p => !['Shubham Desai', 'Vikas Tripathi', 'Yash Sonawane'].includes(p.name));
     S.registeredPlayersRevision = 'e979f91f6c1565c1';
     const active = S.players.find(p => p.name === 'Rohan Bhanushali');
     S.cur = { pid: active.id, bid: 17000, lead: 3, hist: [[3, 17000]] };
@@ -130,13 +133,14 @@ test('players 51 and 52 join an existing registered auction pool once without ch
   });
   await page.reload();
   const updated = await page.evaluate(() => S);
-  assert.equal(updated.players.length, 52);
+  assert.equal(updated.players.length, 53);
   assert.deepEqual(updated.players.slice(0, before.players.length), before.players);
   assert.deepEqual(updated.cur, before.cur);
   assert.deepEqual(updated.sales, before.sales);
   for (const [name, number, category, basePrice] of [
     ['Shubham Desai', 51, 'All Rounder', 20000],
     ['Vikas Tripathi', 52, 'Bowler', 10000],
+    ['Yash Sonawane', 53, 'All Rounder', 20000],
   ]) {
     const player = updated.players.find(p => p.name === name);
     assert.ok(player, name);
@@ -167,6 +171,6 @@ test('an obsolete player with auction activity is retained rather than deleting 
   assert.equal(await page.evaluate(() => pl(200).price), 9000);
   assert.equal(await page.evaluate(() => pl(200).registered), false);
   assert.equal(await page.evaluate(() => S.sales.includes(200)), true);
-  assert.equal(await page.evaluate(() => S.players.filter(p => p.registered).length), 52);
+  assert.equal(await page.evaluate(() => S.players.filter(p => p.registered).length), 53);
   await context.close();
 });

@@ -155,7 +155,7 @@ test('presentation has a touch exit; display and read-only modes render usable s
   await checkLayout(page, 'display mode');
   assert.equal(await page.locator('#bids').isHidden(), true);
   const ro = await context.newPage();
-  await ro.goto(base + '/watch');
+  await ro.goto(base + '/?view=1');
   await ro.waitForFunction(() => document.body.classList.contains('ro'));
   assert.equal(await ro.locator('#bids').isHidden(), true);
   await ro.locator('nav [data-v="squads"]').click();
@@ -191,7 +191,7 @@ test('both HTML entry points stay identical and use the compiled Tailwind asset'
 test('eleven-slot squads and team/owner headings appear across the interface', async () => {
   const { context, page } = await open();
   assert.equal(await page.evaluate(() => S.cfg.squad), 11);
-  const labels = ['Team A (Tejas & Rohit)', 'Team B (Avneesh & Vinay)', 'YODDHAS (Manmohan, Nahas & Priya Singh)', 'Team D (Rakshit & Pallavi)', 'Ruffryderz (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
+  const labels = ['Team A (Tejas & Rohit)', 'Elite Striker (Avneesh & Vinay)', 'YODDHAS (Manmohan, Nahas & Priya Singh)', 'GTS Royals (Rakshit & Pallavi)', 'Ruffryderz (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
   assert.deepEqual(await page.locator('#bids b').allTextContents(), labels);
   assert.deepEqual(await page.locator('#teams b').allTextContents(), labels);
   await page.locator('nav [data-v="squads"]').click();
@@ -309,12 +309,12 @@ test('the current leading team is prominent and changes on bids and undo without
   });
   assert.match(await page.locator('#lead').textContent(), /Waiting for the first bid/);
   await page.locator('#bids [data-i="3"]').click();
-  assert.equal(await page.locator('[data-leading-team]').textContent(), 'Team D');
+  assert.equal(await page.locator('[data-leading-team]').textContent(), 'GTS Royals');
   assert.equal(await page.locator('[data-leading-owners]').textContent(), '(Rakshit & Pallavi)');
   await page.locator('#bids [data-i="5"]').click();
   assert.equal(await page.locator('[data-leading-team]').textContent(), 'Dhurandhar');
   await page.locator('#bUb').click();
-  assert.equal(await page.locator('[data-leading-team]').textContent(), 'Team D');
+  assert.equal(await page.locator('[data-leading-team]').textContent(), 'GTS Royals');
   assert.equal(await page.locator('#hist').count(), 0);
   assert.equal(await page.evaluate(() => S.cur.hist.length), 1, 'bid history remains available for undo');
   for (const [width, height] of [[320, 740], [375, 812], [768, 1024], [1440, 900], [844, 390]]) {

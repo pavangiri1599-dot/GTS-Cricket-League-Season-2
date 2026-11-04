@@ -1,6 +1,6 @@
 // Imported from the supplied workbook. Amit details and additional registrations were confirmed by the user.
 const REGISTERED_PLAYER_DATA = {
-  "revision": "2026-11-04-players-51-52",
+  "revision": "2026-11-05-players-51-53",
   "source": {
     "file": "Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx",
     "sheet": "Registered Player Data",
@@ -474,6 +474,15 @@ const REGISTERED_PLAYER_DATA = {
       "role": "Bowler",
       "category": "Bowler",
       "base": 10000,
+      "sourceRow": null
+    },
+    {
+      "number": 53,
+      "name": "Yash Sonawane",
+      "gender": "Male",
+      "role": "All Rounder",
+      "category": "All Rounder",
+      "base": 20000,
       "sourceRow": null
     }
   ]

@@ -45,7 +45,7 @@ test('viewing is the default and incorrect passwords cannot enable editing', asy
   assert.equal(await page.evaluate(() => JSON.stringify(S)), before);
   assert.equal(await page.evaluate(() => localStorage.getItem(K)), null);
   assert.equal(await page.evaluate(() => sessionStorage.getItem(EDIT_SESSION_KEY)), null);
-  assert.deepEqual(apiRequests, []);
+  assert.ok(apiRequests.some(url => url.endsWith('/api/auction')));
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -75,7 +75,7 @@ test('GTS 26 unlocks all controls, survives refresh and locks without losing the
   await unlock(page);
   await page.locator('#bSold').click();
   assert.match(await page.locator('[data-result-card]').textContent(), /SOLD!/);
-  assert.deepEqual(apiRequests, []);
+  assert.ok(apiRequests.some(url => url.endsWith('/api/auction')));
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -85,11 +85,11 @@ test('watch stays view-only even with an editing flag, while display tabs receiv
   await unlock(page);
   const view = await context.newPage();
   await view.addInitScript(() => sessionStorage.setItem('gts-editing-unlocked-v1', 'yes'));
-  await view.goto(base + '/watch');
+  await view.goto(base + '/?view=1');
   assert.equal(await view.evaluate(() => canEdit()), false);
   assert.equal(await view.locator('#bAccess').isHidden(), true);
   assert.equal(await view.locator('#bids').isHidden(), true);
-  assert.match(await view.locator('#connection-status').textContent(), /not shared across devices/);
+  assert.match(await view.locator('#connection-status').textContent(), /unavailable/);
   await page.evaluate(() => { mute = true; const player = S.players.find(p => p.name === 'Nilesh Shinde'); S.cur = { pid: player.id, bid: player.base, lead: null, hist: [] }; save(); render(); });
   await page.locator('#bids [data-i="5"]').click();
   await view.waitForFunction(() => S.cur?.lead === 5);
@@ -102,7 +102,7 @@ test('watch stays view-only even with an editing flag, while display tabs receiv
   const otherContext = await browser.newContext();
   await otherContext.route('https://fonts.googleapis.com/**', route => route.abort());
   const unrelated = await otherContext.newPage();
-  await unrelated.goto(base + '/watch');
+  await unrelated.goto(base + '/?view=1');
   assert.equal(await unrelated.evaluate(() => S.cur), null, 'a separate browser must not falsely appear to have live updates');
   assert.deepEqual(errors, []);
   await otherContext.close(); await context.close();
@@ -125,12 +125,12 @@ test('static build has no database/API dependencies and no old live client', asy
   assert.equal(config.dependencies?.['@neondatabase/serverless'], undefined);
   assert.equal(config.dependencies?.['drizzle-orm'], undefined);
   assert.equal(config.scripts['db:migrate'], undefined);
-  assert.equal(existsSync('api/auction.mjs'), false);
+  assert.equal(existsSync('api/auction.mjs'), true);
   assert.equal(existsSync('dist/assets/live.js'), false);
   const { context, page, apiRequests } = await open('/auth');
   assert.equal((await context.request.get(base + '/api/session')).status(), 404);
   await unlock(page);
   assert.equal(await page.evaluate(() => canEdit()), true);
-  assert.deepEqual(apiRequests, []);
+  assert.ok(apiRequests.some(url => url.endsWith('/api/auction')));
   await context.close();
 });

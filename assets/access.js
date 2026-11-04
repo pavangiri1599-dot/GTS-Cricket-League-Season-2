@@ -1,5 +1,5 @@
 (() => {
-  // This is a client-side convenience lock, not server-side authentication.
+  // The password is verified by the server when live sharing is configured.
   const EDIT_PASSWORD = 'GTS 26';
   const notice = message => { $('#connection-status').hidden = !message; $('#connection-status').textContent = message; };
 
@@ -24,24 +24,34 @@
     if (canEdit()) lock();
     else { authOpen = !authOpen; render(); if (authOpen) $('#operator-password').focus(); }
   };
-  $('#login-form').onsubmit = event => {
+  $('#login-form').onsubmit = async event => {
     event.preventDefault();
     if (VIEW) return;
-    if ($('#operator-password').value.trim() !== EDIT_PASSWORD) {
+    const password = $('#operator-password').value.trim();
+    if (password !== EDIT_PASSWORD) {
       $('#login-message').textContent = 'Incorrect password. Try again.';
       $('#operator-password').value = ''; $('#operator-password').focus();
       return;
+    }
+    if (liveAvailable !== false) {
+      try {
+        const response = await fetch('/api/session', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+        if (!response.ok) throw new Error('Authentication unavailable');
+      } catch (e) {
+        $('#login-message').textContent = 'Live authentication is unavailable. Check the deployment setup.';
+        return;
+      }
     }
     unlock();
   };
   $('#bShare').onclick = async () => {
     const url = new URL(location.href);
     if (url.protocol === 'file:') { url.hash = 'display'; url.search = ''; }
-    else { url.pathname = '/watch'; url.hash = ''; url.search = ''; }
-    const explanation = ' Viewing follows other tabs in this browser; updates are not shared across devices.';
-    try { await navigator.clipboard.writeText(url.href); notice('Viewing link copied.' + explanation); }
-    catch { notice('Viewing link: ' + url.href + explanation); }
+    else { url.pathname = '/auth'; url.hash = ''; url.search = ''; }
+    const explanation = ' Anyone with this link can watch the live auction; editing still requires the operator password.';
+    try { await navigator.clipboard.writeText(url.href); notice('Live auction link copied.' + explanation); }
+    catch { notice('Live auction link: ' + url.href + explanation); }
   };
-  if (VIEW) notice('This view follows the auction in other tabs of this browser. Updates are not shared across devices.');
+  if (VIEW) notice('Display mode follows the shared live auction.');
   render();
 })();

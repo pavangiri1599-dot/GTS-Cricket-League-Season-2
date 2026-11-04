@@ -5,10 +5,6 @@
     {
       "source": "/auth",
       "destination": "/index.html"
-    },
-    {
-      "source": "/watch",
-      "destination": "/index.html"
     }
   ]
 }

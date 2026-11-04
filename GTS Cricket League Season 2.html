@@ -30,7 +30,7 @@
         <p id="connection-status" hidden role="status" class="rounded-xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm text-amber-100"></p>
         <section id="auth-panel" hidden class="mx-auto w-full max-w-md rounded-2xl border border-line bg-panel p-5">
             <h2>Unlock editing</h2>
-            <p class="mt-2 text-sm text-muted">Enter the editing password to manage this browser's auction. Viewing does not need a password.</p>
+            <p class="mt-2 text-sm text-muted">Enter the editing password to manage the live auction. Everyone using this link sees the same auction.</p>
             <form id="login-form" class="mt-4 flex flex-col gap-3">
                 <label>Operator password<input id="operator-password" type="password" autocomplete="current-password" required></label>
                 <button class="btn pri" type="submit">Unlock editing</button>
@@ -80,7 +80,7 @@
     <script src="./assets/announcer.js"></script>
     <script>
         const $ = s => document.querySelector(s), K = 'gts-auction-v3', DISP = location.hash === '#display';
-        const VIEW = DISP || location.pathname.replace(/\/$/, '') === '/watch' || new URLSearchParams(location.search).get('view') === '1';
+        const VIEW = DISP || new URLSearchParams(location.search).get('view') === '1';
         const EDIT_SESSION_KEY = 'gts-editing-unlocked-v1';
         let editingUnlocked = false, authOpen = location.pathname.replace(/\/$/, '') === '/auth';
         try { editingUnlocked = sessionStorage.getItem(EDIT_SESSION_KEY) === 'yes'; } catch (e) { }
@@ -92,9 +92,9 @@
         const norm = s => { s = (s || '').toLowerCase(); return /icon/.test(s) ? 'Icon' : /owner/.test(s) ? 'Owner' : /all|^ar$/.test(s) ? 'All Rounder' : /bat/.test(s) ? 'Batsman' : /bowl/.test(s) ? 'Bowler' : /fem|wom/.test(s) ? 'Female Player' : 'New Player' };
         const TEAM_DEFAULTS = [
             { name: 'Team A', owner: 'Tejas & Rohit', legacy: ['Tejas & Rohit'] },
-            { name: 'Team B', owner: 'Avneesh & Vinay', legacy: ['Avneesh & Vinay'] },
+            { name: 'Elite Striker', owner: 'Avneesh & Vinay', legacy: ['Team B', 'Avneesh & Vinay'] },
             { name: 'YODDHAS', owner: 'Manmohan, Nahas & Priya Singh', legacy: ['Team C', 'Manmohan', 'Manmohan / Nahas / Priya Singh'] },
-            { name: 'Team D', owner: 'Rakshit & Pallavi', legacy: ['Rakshit & Pallavi'] },
+            { name: 'GTS Royals', owner: 'Rakshit & Pallavi', legacy: ['Team D', 'Rakshit & Pallavi'] },
             { name: 'Ruffryderz', owner: 'Ashutosh & Alok', legacy: ['Team E', 'Ashutosh & Alok'] },
             { name: 'Dhurandhar', owner: 'Sudip & Kunal', legacy: ['Sudip', 'Sudip & Kunal'] },
         ];
@@ -108,8 +108,8 @@
             if (teamC && [TEAM_DEFAULTS[2].name, ...TEAM_DEFAULTS[2].legacy].includes(teamC.name) && /^(manmohan|manmohan\s*\/\s*nahas\s*\/\s*priya singh)$/i.test((teamC.owner || '').trim())) {
                 teamC.owner = TEAM_DEFAULTS[2].owner; changed = true;
             }
-            if (state.teamSetupVersion >= 1) {
-                for (const id of [2, 4]) {
+            if (state.teamSetupVersion >= 2) {
+                for (const id of [1, 2, 3, 4]) {
                     const team = state.teams.find(t => t.id === id), defaults = TEAM_DEFAULTS[id];
                     if (team && defaults.legacy.includes(team.name)) { team.name = defaults.name; changed = true; }
                 }
@@ -120,7 +120,7 @@
                 const defaults = TEAM_DEFAULTS[t.id];
                 if (defaults && defaults.legacy.includes(t.name)) { t.name = defaults.name; t.owner = defaults.owner; }
             });
-            state.teamSetupVersion = 1;
+            state.teamSetupVersion = 2;
             return true;
         }
         const PREASSIGNED = [["Suraj Panchal", 1, 40000], ["Vishal Tiwari", 2, 40000], ["Mandar Ghugare", 3, 40000], ["Nishant Patil", 4, 40000], ["Sanil Gaikwad", 5, 40000], ["Pavan Giri", 6, 40000], ["Tejas Sawant", 1, 30000], ["Rohit Singh", 1, 30000], ["Nahas Khalid", 3, 30000], ["Rakshit Deshmukh", 4, 30000], ["Pallavi Kudtarkar", 4, 15000]];
@@ -129,8 +129,9 @@
             return [p.name, category, p.base, fixed ? fixed[1] : '', fixed ? fixed[2] : ''].join(', ');
         }).join('\n');
         let S, seen = 0, reeling = false, mute = false, AC, ovT, shown = 0, reelTimer, RO = VIEW || !editingUnlocked, lastJ = '', LV = null;
+        let liveVersion = 0, liveAvailable = null, liveSyncTimer = null;
         const canEdit = () => !VIEW && !RO;
-        function build(cfg, tt, pt) { S = { cfg, teams: tt.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 8).map((l, i) => { const fields = l.split(',').map(x => x.trim()), name = fields.shift(), color = /^#[0-9a-f]{6}$/i.test(fields.at(-1) || '') ? fields.pop() : PAL[i]; return { id: i, name, owner: fields.join(', '), color } }), players: pt.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const [a, b, c, d, e] = l.split(',').map(x => x.trim()); const cat = norm(b), tm = parseInt(d) - 1, fx = tm >= 0 && tm < 8, bp = +c || CATS[cat][2]; const record = registrationByName.get(registrationKey(a)); return { ...(record ? registrationFields(record) : { registered: false }), id: i, name: a, cat, base: bp, team: fx ? tm : -1, price: fx ? (+e || bp) : 0, st: fx ? 's' : 'p', f: record ? record.gender === 'Female' : /fem|wom/i.test(b || '') } }), cur: null, sales: [], ev: null, view: 'auction', filt: '', rv: 2, teamSetupVersion: 1, registeredPlayersRevision: REGISTERED_PLAYER_DATA.revision } }
+        function build(cfg, tt, pt) { S = { cfg, teams: tt.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 8).map((l, i) => { const fields = l.split(',').map(x => x.trim()), name = fields.shift(), color = /^#[0-9a-f]{6}$/i.test(fields.at(-1) || '') ? fields.pop() : PAL[i]; return { id: i, name, owner: fields.join(', '), color } }), players: pt.split('\n').map(l => l.trim()).filter(Boolean).map((l, i) => { const [a, b, c, d, e] = l.split(',').map(x => x.trim()); const cat = norm(b), tm = parseInt(d) - 1, fx = tm >= 0 && tm < 8, bp = +c || CATS[cat][2]; const record = registrationByName.get(registrationKey(a)); return { ...(record ? registrationFields(record) : { registered: false }), id: i, name: a, cat, base: bp, team: fx ? tm : -1, price: fx ? (+e || bp) : 0, st: fx ? 's' : 'p', f: record ? record.gender === 'Female' : /fem|wom/i.test(b || '') } }), cur: null, sales: [], ev: null, view: 'auction', filt: '', rv: 2, teamSetupVersion: 2, registeredPlayersRevision: REGISTERED_PLAYER_DATA.revision } }
         function reset() { build({ title: LEAGUE_TITLE, purse: 200000, squad: 11, inc: 1000, reserve: 2000 }, T0, P0) }
         try { S = JSON.parse(localStorage.getItem(K)); if (!S || !S.teams) S = null } catch (e) { S = null }
         if (!S) reset();
@@ -142,7 +143,42 @@
             S.v = (S.v || 0) + 1;
             try { lastJ = JSON.stringify(S); localStorage.setItem(K, lastJ); }
             catch (e) { $('#connection-status').hidden = false; $('#connection-status').textContent = 'Browser storage is unavailable. Keep this tab open to retain the auction.'; }
+            scheduleLiveSync();
         };
+        const liveNotice = message => { $('#connection-status').hidden = !message; $('#connection-status').textContent = message; };
+        async function syncLiveState() {
+            liveSyncTimer = null;
+            if (!canEdit() || liveAvailable === false) return;
+            try {
+                const response = await fetch('/api/auction', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: S, version: liveVersion }) });
+                if (response.status === 401) { liveNotice('Editing access expired. Unlock editing again to save live changes.'); return; }
+                if (!response.ok) throw new Error('Live save unavailable');
+                const result = await response.json(); liveAvailable = true; liveVersion = result.version;
+                liveNotice('Live auction connected. Changes are shared with everyone using this link.');
+            } catch (e) {
+                liveAvailable = false;
+                liveNotice('Live sharing is unavailable here. This browser is using its local copy.');
+            }
+        }
+        function scheduleLiveSync() { if (liveSyncTimer) clearTimeout(liveSyncTimer); liveSyncTimer = setTimeout(syncLiveState, 120); }
+        async function loadLiveState() {
+            try {
+                const response = await fetch('/api/auction', { credentials: 'same-origin', cache: 'no-store' });
+                if (response.status === 204) { liveAvailable = true; liveNotice('Live auction connected. Waiting for the first operator update.'); return; }
+                if (!response.ok) throw new Error('Live state unavailable');
+                const result = await response.json();
+                if (result.state && result.version >= liveVersion) {
+                    S = result.state; liveVersion = result.version; migrateTeamSetup(S); migrateRegisteredPlayers(S);
+                    lastJ = JSON.stringify(S); try { localStorage.setItem(K, lastJ); } catch (e) { }
+                    seen = S.ev ? S.ev.ts : 0; render();
+                }
+                liveAvailable = true;
+                liveNotice('Live auction connected. Changes are shared with everyone using this link.');
+            } catch (e) {
+                liveAvailable = false;
+                liveNotice('Live sharing is unavailable here. This browser is using its local copy.');
+            }
+        }
         if (teamSetupChanged) save();
         if (S.rv !== 2) { S.players.forEach(p => { if (p.cat === 'Female Player' || /pallavi/i.test(p.name)) p.f = true; if (!(p.st === 's' && !S.sales.includes(p.id))) p.base = CATS[p.cat][2] }); S.cfg.reserve = 2000; S.cfg.inc = Math.max(1000, S.cfg.inc || 1000); S.rv = 2; save() }
         if (migrateRegisteredPlayers(S)) save();
@@ -269,6 +305,8 @@
             if (/^[1-8]$/.test(k)) bid(+k - 1); else if (k === 's' || k === 'enter') sold(); else if (k === 'u') unsold(); else if (k === 'n') draw(); else if (k === 'z') undoBid(); else if (k === 'x') undoSale(); else if (k === 'm') toggleSound(); else if (k === 'h') togglePresentation()
         });
         addEventListener('storage', e => { if (e.key === K && e.newValue) { applyStoredState(e.newValue) } });
+        loadLiveState();
+        setInterval(() => { if (!document.hidden) loadLiveState(); }, 2000);
         const STL = { p: 'In pool', s: 'Sold', u: 'Unsold' };
         function release(p) { if (!canEdit()) return; p.team = -1; p.price = 0; S.sales = S.sales.filter(x => x !== p.id) }
         function rmPlayer(b) { if (!canEdit()) return; if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Remove?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = '✕' }, 3000); return } const p = pl(+b.dataset.rm); release(p); p.st = 'p'; save(); render() }

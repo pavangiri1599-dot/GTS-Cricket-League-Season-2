@@ -57,7 +57,7 @@ The generated stylesheet is committed in `assets/styles.css`, so the HTML can al
 
 ## Registered player data
 
-The app includes **52 registered players**: 50 from `Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx`, sheet **Registered Player Data**, cells **A3:D52**, plus two registrations confirmed by the user: **51 — Shubham Desai, Male / All Rounder (₹20,000)** and **52 — Vikas Tripathi, Male / Bowler (₹10,000)**. Names, registration numbers (including blanks), gender, and the original player role are retained. Amit Nagarkoti is included as **Male / New Player**, as confirmed by the user. The two additional registrations have no workbook source row; retain them when refreshing the workbook import.
+The app includes **53 registered players**: 50 from `Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx`, sheet **Registered Player Data**, cells **A3:D52**, plus three registrations confirmed by the user: **51 — Shubham Desai, Male / All Rounder (₹20,000)**, **52 — Vikas Tripathi, Male / Bowler (₹10,000)**, and **53 — Yash Sonawane, Male / All Rounder (₹20,000)**. Names, registration numbers (including blanks), gender, and the original player role are retained.
 
 The player editor shows the original registered role and gender beneath each name. Auction categories map **Batter** to **Batsman**, female all-rounders to **Female Player**, and **All Rounder/Owner** to **Owner**, while retaining the original role text. Base prices come from the workbook's Player Prices and owner/icon deduction cells.
 
@@ -89,9 +89,9 @@ The starting configuration is a **₹2,00,000 purse**, **11 slots per team**, **
 The initial teams are:
 
 - **Team A** (Tejas & Rohit)
-- **Team B** (Avneesh & Vinay)
+- **Elite Striker** (Avneesh & Vinay)
 - **YODDHAS** (Manmohan, Nahas & Priya Singh)
-- **Team D** (Rakshit & Pallavi)
+- **GTS Royals** (Rakshit & Pallavi)
 - **Ruffryderz** (Ashutosh & Alok)
 - **Dhurandhar** (Sudip & Kunal)
 
@@ -111,14 +111,13 @@ Shortcuts work outside editable fields. Auction action shortcuts apply on the Au
 - `H`: toggle presentation mode.
 - `Escape`: dismiss an open result dialog.
 
-**Present** hides operator controls in the current tab. **Open display** opens the same auction at `#display` in another tab and follows the operator's Auction/Squads view. **Copy viewing link** copies `/watch`, where viewers can switch between Auction and Squads without changing the editing tab's view.
+**Present** hides operator controls in the current tab. **Open display** opens the same auction at `#display` in another tab. **Copy viewing link** copies the one canonical `/auth` link: anyone can watch the live auction there, and only an operator who enters the password can edit it.
 
 ## Viewing and editing
 
 After deploying this version, use:
 
-- **Editing entry:** https://gts-five.vercel.app/auth
-- **Viewing:** https://gts-five.vercel.app/watch
+- **Live auction (viewing and operator entry):** https://gts-five.vercel.app/auth
 - **Password:** `GTS 26` (including the space; capitalization matters).
 
 1. Open the site. It starts in view-only mode.
@@ -126,32 +125,30 @@ After deploying this version, use:
 3. Enter **GTS 26** to enable bidding, drawing, selling, player changes, and Setup.
 4. Select **Lock editing** to return to viewing mode without resetting any auction data.
 
-Unlocking is remembered in the current tab's session storage, so refreshing that tab retains access. `/watch` and `#display` always stay in viewing mode, even when opened from an editing tab.
+Unlocking is remembered in the current tab's session storage, so refreshing that tab retains access. `#display` always stays in viewing mode, even when opened from an editing tab.
 
-### What this simple mode does and does not do
+### Live sharing and operator access
 
-The password is intentionally stored in frontend code as requested. It is a convenience lock against accidental edits, **not secure authentication**: someone inspecting or modifying their browser can discover or bypass it. Do not reuse this password for any other account.
+All devices use the same `/auth` URL and read one shared auction state. Polling checks for changes every two seconds, so sales, bids, and roster changes appear for viewers without a refresh. Operator access is authenticated with a signed, HttpOnly 12-hour session cookie; the password itself is not put into browser storage.
 
-Auction changes save under `gts-auction-v3` in browser local storage. Other tabs in the same browser profile on the same site receive changes automatically. **Other phones, computers, browser profiles, and origins do not receive live updates**; sharing a URL does not share browser storage. For an audience on separate devices without a backend, screen-share the auction/display window through your existing meeting app.
-
-No `DATABASE_URL`, `AUCTION_ADMIN_PASSWORD`, migration command, or API connection is required. The previous database/API implementation has been removed. An old Vercel password environment variable is unused and can be left in place or removed without affecting this version.
+The deployment needs a Vercel KV store and these Production environment variables: `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `AUCTION_ADMIN_PASSWORD`, and a long random `AUCTION_AUTH_SECRET`. Set `AUCTION_ADMIN_PASSWORD` to the operator password. Without those values, the interface makes this clear and uses a browser-only fallback, which is not shared across devices.
 
 ## Architecture
 
-This version is a static HTML/JavaScript app with locally compiled Tailwind CSS. All auction state, editing access, rendering, and animations run in the browser. Node.js is used only for building, previewing, screenshots, and tests.
+This version uses a static HTML/JavaScript interface with Vercel serverless functions and Vercel KV for shared auction state. Node.js is also used for building, previewing, screenshots, and tests.
 
 ```mermaid
 flowchart TD
     Visitor[Visitor] --> Viewing[View-only interface]
-    Password[Enter GTS 26] --> Unlock[Client-side editing lock]
-    Unlock --> Session[(Tab sessionStorage)]
+    Password[Enter operator password] --> Auth[Signed HttpOnly session]
+    Auth --> Unlock[Editing access]
     Unlock --> Actions[Auction editing controls]
     Actions --> Rules[Budget, reserve and squad checks]
     Rules --> State[Auction state S]
     State --> Render[Stage, teams, squads and player views]
     State --> Save[Save auction]
-    Save --> Local[(Browser localStorage)]
-    Local --> Event[Storage event in other same-origin tabs]
+    Save --> KV[(Vercel KV)]
+    KV --> Event[Polling on every device]
     Event --> Viewing
     Viewing --> Render
 ```
@@ -200,7 +197,8 @@ flowchart LR
 |   |-- access.test.mjs              # Editing lock and same-browser viewing
 |   `-- ui.test.mjs                  # Responsive auction regression checks
 |-- docs/images/                     # Committed UI screenshots
-|-- vercel.json                      # Static build and auth/watch routes
+|-- api/                             # Vercel serverless authentication and shared auction state
+|-- vercel.json                      # Static build and canonical auth route
 |-- package.json
 `-- package-lock.json
 ```
@@ -229,7 +227,7 @@ The suite uses installed Chrome/Edge on Windows, `CHROME_PATH` if supplied, or P
 npx playwright install chromium
 ```
 
-Checks cover all five views across phone, tablet, desktop, and landscape sizes; text reflow; long names; larger text; bid/undo/sold/unsold flows; 11-player squads; saved-state corrections; result dialogs; presentation/display modes; and the enlarged leading team. Access checks cover default viewing, rejected passwords, GTS 26 unlocking, refresh/locking behavior, data preservation, draw cancellation when locking, same-browser display updates, and the absence of API/database requests. Tests use isolated browser storage and block external font requests to verify fallback fonts. Screenshots go to `test-results/`.
+Checks cover all five views across phone, tablet, desktop, and landscape sizes; text reflow; long names; larger text; bid/undo/sold/unsold flows; 11-player squads; saved-state corrections; result dialogs; presentation/display modes; and the enlarged leading team. Tests use isolated browser storage and block external font requests to verify fallback fonts. Screenshots go to `test-results/`.
 
 ### Refresh the README images
 
@@ -242,7 +240,7 @@ The screenshot script starts a temporary server and browser profile, stages Nile
 
 ## Deployment
 
-The Vercel configuration runs **`npm run build`**, serves **`dist/`**, and maps `/auth` and `/watch` to the same static app. Deploy the repository to the existing project; no database or environment variables are needed. Other static hosts can serve `dist/` if they map these two paths to `index.html`.
+The Vercel configuration runs **`npm run build`**, serves **`dist/`**, and maps `/auth` to the app. Create and connect a Vercel KV store, set `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `AUCTION_ADMIN_PASSWORD`, and `AUCTION_AUTH_SECRET`, then deploy. The single shareable address is `/auth`.
 
 ## Branding
 
