@@ -57,7 +57,7 @@ The generated stylesheet is committed in `assets/styles.css`, so the HTML can al
 
 ## Registered player data
 
-The app includes **53 registered players**: 50 from `Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx`, sheet **Registered Player Data**, cells **A3:D52**, plus three registrations confirmed by the user: **51 — Shubham Desai, Male / All Rounder (₹20,000)**, **52 — Vikas Tripathi, Male / Bowler (₹10,000)**, and **53 — Yash Sonawane, Male / All Rounder (₹20,000)**. Names, registration numbers (including blanks), gender, and the original player role are retained.
+The app includes **54 registered players**: 50 from `Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx`, sheet **Registered Player Data**, cells **A3:D52**, plus four registrations confirmed by the user: **51 — Shubham Desai, Male / All Rounder (₹20,000)**, **52 — Vikas Tripathi, Male / Bowler (₹10,000)**, **53 — Yash Sonawane, Male / All Rounder (₹20,000)**, and **54 — Abhinav Parab, Male / Bowler (₹10,000)**. Names, registration numbers (including blanks), gender, and the original player role are retained.
 
 The player editor shows the original registered role and gender beneath each name. Auction categories map **Batter** to **Batsman**, female all-rounders to **Female Player**, and **All Rounder/Owner** to **Owner**, while retaining the original role text. Base prices come from the workbook's Player Prices and owner/icon deduction cells.
 
@@ -88,7 +88,7 @@ The starting configuration is a **₹2,00,000 purse**, **11 slots per team**, **
 
 The initial teams are:
 
-- **Team A** (Tejas & Rohit)
+- **GTS Titans** (Tejas & Rohit)
 - **Elite Striker** (Avneesh & Vinay)
 - **YODDHAS** (Manmohan, Nahas & Priya Singh)
 - **GTS Royals** (Rakshit & Pallavi)

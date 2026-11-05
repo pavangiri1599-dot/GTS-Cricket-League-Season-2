@@ -1,6 +1,6 @@
 // Imported from the supplied workbook. Amit details and additional registrations were confirmed by the user.
 const REGISTERED_PLAYER_DATA = {
-  "revision": "2026-11-05-players-51-53",
+  "revision": "2026-11-05-players-51-54",
   "source": {
     "file": "Auction Rules and Registered Players Data - GTS Cricket League Season 2.xlsx",
     "sheet": "Registered Player Data",
@@ -483,6 +483,15 @@ const REGISTERED_PLAYER_DATA = {
       "role": "All Rounder",
       "category": "All Rounder",
       "base": 20000,
+      "sourceRow": null
+    },
+    {
+      "number": 54,
+      "name": "Abhinav Parab",
+      "gender": "Male",
+      "role": "Bowler",
+      "category": "Bowler",
+      "base": 10000,
       "sourceRow": null
     }
   ]

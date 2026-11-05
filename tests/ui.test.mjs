@@ -191,7 +191,7 @@ test('both HTML entry points stay identical and use the compiled Tailwind asset'
 test('eleven-slot squads and team/owner headings appear across the interface', async () => {
   const { context, page } = await open();
   assert.equal(await page.evaluate(() => S.cfg.squad), 11);
-  const labels = ['Team A (Tejas & Rohit)', 'Elite Striker (Avneesh & Vinay)', 'YODDHAS (Manmohan, Nahas & Priya Singh)', 'GTS Royals (Rakshit & Pallavi)', 'Ruffryderz (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
+  const labels = ['GTS Titans (Tejas & Rohit)', 'Elite Striker (Avneesh & Vinay)', 'YODDHAS (Manmohan, Nahas & Priya Singh)', 'GTS Royals (Rakshit & Pallavi)', 'Ruffryderz (Ashutosh & Alok)', 'Dhurandhar (Sudip & Kunal)'];
   assert.deepEqual(await page.locator('#bids b').allTextContents(), labels);
   assert.deepEqual(await page.locator('#teams b').allTextContents(), labels);
   await page.locator('nav [data-v="squads"]').click();
@@ -229,7 +229,7 @@ test('existing saved and shared-browser auctions gain new team labels and slots 
   assert.equal(migrated.teams[5].owner, 'Sudip & Kunal');
   await page.evaluate(state => applyStoredState(JSON.stringify({ ...state, v: 100 })), legacy);
   assert.equal(await page.evaluate(() => S.cfg.squad), 11);
-  assert.equal(await page.evaluate(() => S.teams[0].name), 'Team A');
+  assert.equal(await page.evaluate(() => S.teams[0].name), 'GTS Titans');
   assert.deepEqual(await page.evaluate(() => S.players), legacy.players);
   const custom = structuredClone(legacy);
   custom.cfg.squad = 12;
