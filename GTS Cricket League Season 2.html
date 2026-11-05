@@ -157,7 +157,7 @@
                 liveNotice('Live auction connected. Changes are shared with everyone using this link.');
             } catch (e) {
                 liveAvailable = false;
-                liveNotice('Live sharing is unavailable here. This browser is using its local copy.');
+                liveNotice('');
             }
         }
         function scheduleLiveSync() { if (liveSyncTimer) clearTimeout(liveSyncTimer); liveSyncTimer = setTimeout(syncLiveState, 120); }
@@ -176,7 +176,7 @@
                 liveNotice('Live auction connected. Changes are shared with everyone using this link.');
             } catch (e) {
                 liveAvailable = false;
-                liveNotice('Live sharing is unavailable here. This browser is using its local copy.');
+                liveNotice('');
             }
         }
         if (teamSetupChanged) save();

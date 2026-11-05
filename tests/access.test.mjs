@@ -89,7 +89,7 @@ test('watch stays view-only even with an editing flag, while display tabs receiv
   assert.equal(await view.evaluate(() => canEdit()), false);
   assert.equal(await view.locator('#bAccess').isHidden(), true);
   assert.equal(await view.locator('#bids').isHidden(), true);
-  assert.match(await view.locator('#connection-status').textContent(), /unavailable/);
+  assert.equal(await view.locator('#connection-status').isHidden(), true);
   await page.evaluate(() => { mute = true; const player = S.players.find(p => p.name === 'Nilesh Shinde'); S.cur = { pid: player.id, bid: player.base, lead: null, hist: [] }; save(); render(); });
   await page.locator('#bids [data-i="5"]').click();
   await view.waitForFunction(() => S.cur?.lead === 5);
